@@ -1,0 +1,50 @@
+{
+  "name": "aams-backend",
+  "version": "1.0.0",
+  "description": "AAMS Backend API - Node.js + Express + MongoDB",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed": "node src/utils/seeder.js",
+    "test": "jest --detectOpenHandles",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:auth": "jest tests/auth.test.js",
+    "test:attendance": "jest tests/attendance.test.js",
+    "test:premium": "jest tests/premium.test.js",
+    "test:validation": "jest tests/validation.test.js",
+    "test:integration": "jest tests/integration.test.js",
+    "test:security": "jest tests/security-audit.test.js",
+    "test:all": "jest --coverage --detectOpenHandles"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "date-fns": "^3.3.1",
+    "dotenv": "^16.4.1",
+    "exceljs": "^4.4.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.2.0",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^7.1.0",
+    "mongoose": "^8.1.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.10",
+    "pdfkit": "^0.14.0",
+    "qrcode": "^1.5.3",
+    "redis": "^4.6.13",
+    "socket.io": "^4.7.4",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "@testing-library/jest-dom": "^6.1.5",
+    "nodemon": "^3.0.3"
+  }
+}

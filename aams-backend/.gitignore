@@ -1,0 +1,136 @@
+# ===== AAMS Project .gitignore =====
+# Covers: React (Vite) + Node.js + Python (Flask) + MongoDB
+
+# ─── Environment Variables ───────────────────────────────────────────────────
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+*.env
+
+# ─── Node.js / npm ───────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+.pnpm-store/
+
+# ─── React / Vite (Frontend) ─────────────────────────────────────────────────
+aams-frontend/dist/
+aams-frontend/.vite/
+aams-frontend/build/
+aams-frontend/.cache/
+
+# ─── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+.env/
+
+# Python egg / dist
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# ─── AI Service Data ─────────────────────────────────────────────────────────
+# Face encodings and captured images (can be large and contain personal data)
+aams-ai/data/encodings/
+aams-ai/data/faces/
+aams-ai/data/temp/
+*.pkl
+
+# ─── File Uploads ────────────────────────────────────────────────────────────
+aams-backend/uploads/
+uploads/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+# Uncomment below if you want to allow some images (e.g. placeholder assets)
+# !src/assets/**/*.png
+# !src/assets/**/*.jpg
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+lerna-debug.log*
+.npm/
+
+# ─── OS Files ────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ─── IDE / Editor ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+*.iml
+.vs/
+
+# ─── MongoDB ─────────────────────────────────────────────────────────────────
+*.db
+mongod.lock
+mongo-data/
+
+# ─── Generated Reports ───────────────────────────────────────────────────────
+*.pdf
+*.xlsx
+*.xls
+reports/
+
+# ─── Testing ─────────────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+pytest_cache/
+
+# ─── Misc ────────────────────────────────────────────────────────────────────
+*.zip
+*.tar.gz
+*.rar
+.temp/
+tmp/
+temp/

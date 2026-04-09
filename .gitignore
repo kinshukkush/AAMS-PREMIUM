@@ -1,0 +1,235 @@
+# Environment Variables
+.env
+.env.local
+.env.*.local
+.env.example
+
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build & Dist
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.eslintcache
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+jest.config.js
+test-results/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime Data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# dotenv environment variables file
+.env.production.local
+
+# Runtime data
+pids
+*.pid
+*.seed
+
+# Mobile App (Expo)
+.expo/
+.expo-shared/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.env.local
+.env.*.local
+
+# Python
+*.egg-info
+.pytest_cache/
+.coverage
+htmlcov/
+venv/
+env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg
+
+# Temporary Files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# OS Files
+Thumbs.db
+.DS_Store
+
+# Session & Temp Data
+.copilot/
+session-state/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+local-db/
+
+# Cache
+.cache/
+*.cache
+
+# AI Service Models (too large, use Git LFS or download separately)
+aams-ai/models/*.bin
+aams-ai/models/*.pb
+aams-ai/models/*.pth
+
+# Backend Files to Exclude
+aams-backend/uploads/
+aams-backend/.env
+aams-backend/node_modules/
+aams-backend/dist/
+
+# Frontend Files to Exclude
+aams-frontend/node_modules/
+aams-frontend/dist/
+aams-frontend/.env
+aams-frontend/.vite/
+
+# Mobile Files to Exclude
+aams-mobile/node_modules/
+aams-mobile/.expo/
+aams-mobile/dist/
+aams-mobile/.env
+
+# AI Service Files to Exclude
+aams-ai/venv/
+aams-ai/__pycache__/
+aams-ai/.env
+
+# Documentation Files (Session-Specific - keep in repo)
+# But exclude local session state
+.copilot/session-state/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Misc
+.DS_Store
+*.pem
+*.key
+*.crt
+.vscode-test/
+.sass-cache/
+
+# Session documentation and status files
+AAMS_SETUP_COMPLETE.md
+BACKEND_FIXES.md
+COMPLETE_SETUP_GUIDE.md
+COMPLETE_STARTUP_GUIDE.md
+COMPLETE_SYSTEM_SUMMARY.md
+DEPLOYMENT_GUIDE.md
+DETAILED_ANALYSIS.md
+DOCUMENTATION_INDEX.md
+ENV_SETUP_GUIDE.md
+FILES_MODIFIED.md
+FINAL_STATUS.md
+FINAL_SUMMARY.txt
+FIX_SUMMARY.md
+FRONTEND_FIXES_COMPLETE.md
+FRONTEND_FIX_SUMMARY.md
+FRONTEND_ROUTER_FIX.md
+FRONTEND_UI_THEME_FIXES.md
+GITHUB_COMPLETE.md
+GITHUB_CONFIG_SUMMARY.md
+GITHUB_FINAL_REFERENCE.md
+GITHUB_QUICK_REFERENCE.md
+GITHUB_READY.md
+GITHUB_SETUP_GUIDE.md
+IMPLEMENTATION_STRATEGY.md
+INSTALL_TROUBLESHOOTING.md
+MASTER_GUIDE.md
+MOBILE_APP_FIXES.md
+MOBILE_WEB_VS_ANDROID.md
+PHASE1_COMPLETE.md
+PHASE2_PROGRESS.md
+PHASE_7_COMPLETE_SUMMARY.md
+PHASE_7_FILES_SUMMARY.md
+PRODUCTION_CHECKLIST.md
+PROJECT_STATUS.txt
+PROJECT_STATUS_DASHBOARD.md
+PROJECT_SUMMARY.md
+QUICKSTART.md
+QUICK_ACCESS_GUIDE.md
+QUICK_FIX_REFERENCE.md
+QUICK_START_BACKEND.md
+QUICK_START_MOBILE.md
+README_FIRST.md
+README_SETUP.md
+REFACTOR_PLAN.md
+SESSION_CHECKLIST.md
+SESSION_COMPLETION_REPORT.md
+SESSION_SUMMARY.md
+SESSION_UI_FIXES_SUMMARY.md
+START_HERE.md
+START_HERE_FIXES.md
+SYSTEM_STATUS.md
+TESTING_FIXES.md
+TESTING_GUIDE.md
+THIS_SESSION_FIXES.md
+THIS_SESSION_GITHUB_SUMMARY.md
+TROUBLESHOOTING_GUIDE.md
