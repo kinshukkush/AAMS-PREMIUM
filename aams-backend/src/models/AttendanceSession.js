@@ -52,6 +52,6 @@ const attendanceSessionSchema = new mongoose.Schema({
 
 attendanceSessionSchema.index({ course: 1, date: 1 });
 attendanceSessionSchema.index({ faculty: 1, date: 1 });
-attendanceSessionSchema.index({ sessionCode: 1 });
+// NOTE: sessionCode is indexed via `unique: true` on the field — no separate index needed.
 
 module.exports = mongoose.model('AttendanceSession', attendanceSessionSchema);

@@ -75,7 +75,7 @@ const userSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes
-userSchema.index({ email: 1 });
+// NOTE: email is indexed via `unique: true` on the field — no separate index needed.
 userSchema.index({ role: 1 });
 userSchema.index({ 'studentProfile.rollNo': 1 }, { sparse: true });
 userSchema.index({ 'facultyProfile.employeeCode': 1 }, { sparse: true });

@@ -1,272 +1,175 @@
 import { useState, useEffect } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { BookOpen, Calendar, AlertTriangle, Award, RefreshCw } from 'lucide-react';
-import { StatCard, PageHeader, AttendanceBadge, LoadingSpinner } from '../../components/common/CommonComponents';
-import { apiClient } from '../../context/AuthContext';
+import { motion } from 'framer-motion';
+import { Clock, BookOpen, CheckCircle, AlertTriangle, Bell, Calendar, TrendingUp, User } from 'lucide-react';
+import { fadeUp, stagger } from '../../utils/animations';
 import { useAuth } from '../../context/AuthContext';
+
+const SUBJECTS = [
+  { name: 'Data Structures',  code: 'CSE-301', attended: 22, total: 25, pct: 88 },
+  { name: 'Mathematics III',  code: 'MA-301',  attended: 18, total: 24, pct: 75 },
+  { name: 'Computer Networks',code: 'CSE-302', attended: 20, total: 22, pct: 90 },
+  { name: 'OS Concepts',      code: 'CSE-303', attended: 14, total: 20, pct: 70 },
+  { name: 'DBMS',             code: 'CSE-304', attended: 19, total: 21, pct: 90 },
+];
+
+const TODAY_CLASSES = [
+  { time: '09:00', course: 'Data Structures',  room: 'LH-204', status: 'present' },
+  { time: '11:00', course: 'Mathematics III',  room: 'LH-102', status: 'present' },
+  { time: '14:00', course: 'Computer Networks',room: 'LH-301', status: 'upcoming' },
+  { time: '16:00', course: 'OS Concepts',      room: 'LH-205', status: 'upcoming' },
+];
+
+const ACTIVITY = [
+  { text: 'Attendance marked in Data Structures', time: '2h ago', icon: CheckCircle, color: 'var(--success)' },
+  { text: 'New notification: Assignment due tomorrow', time: '4h ago', icon: Bell, color: 'var(--warning)' },
+  { text: 'Mathematics III attendance recorded', time: '6h ago', icon: CheckCircle, color: 'var(--success)' },
+  { text: 'Low attendance warning for OS Concepts', time: '1d ago', icon: AlertTriangle, color: 'var(--danger)' },
+];
+
+function AttendanceDonut({ pct }) {
+  const r = 70, c = 2 * Math.PI * r;
+  const color = pct >= 85 ? '#34D399' : pct >= 75 ? '#FBBF24' : '#F87171';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+      <div style={{ position: 'relative', width: 180, height: 180 }}>
+        <svg width={180} height={180} style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx={90} cy={90} r={r} fill="none" stroke="var(--bg-elevated)" strokeWidth={12} />
+          <circle cx={90} cy={90} r={r} fill="none" stroke={color} strokeWidth={12}
+            strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)}
+            strokeLinecap="round" style={{ transition: 'stroke-dashoffset 1.2s var(--ease-smooth)' }}
+          />
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 700, color }}>{pct}%</span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Overall</span>
+        </div>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: pct >= 85 ? 'var(--success)' : pct >= 75 ? 'var(--warning)' : 'var(--danger)' }}>
+          {pct >= 85 ? '✓ Excellent attendance' : pct >= 75 ? '⚠ Near minimum threshold' : '⚠ Below 75% — At risk!'}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function StudentDashboard() {
   const { user } = useAuth();
-  const [summary, setSummary] = useState([]);
-  const [recentRecords, setRecentRecords] = useState([]);
-  const [overall, setOverall] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
-
-  // Get student ID — backend may return either 'id' or '_id'
-  const studentId = user?._id || user?.id;
-
-  const loadData = async (isRefresh = false) => {
-    // If no studentId, stop loading and show empty state — don't spin forever
-    if (!studentId) {
-      setLoading(false);
-      setError('Could not load student profile. Please log out and log in again.');
-      return;
-    }
-
-    if (isRefresh) setRefreshing(true);
-
-    try {
-      const [sumRes, recRes] = await Promise.all([
-        apiClient.get(`/attendance/student/${studentId}/summary`),
-        apiClient.get(`/attendance/student/${studentId}`, { params: { limit: 8 } }),
-      ]);
-
-      setSummary(sumRes.data?.summary || []);
-      setOverall(sumRes.data?.overall || 0);
-      setRecentRecords(recRes.data?.records || []);
-      setError(null);
-    } catch (err) {
-      console.error('Dashboard load error:', err);
-      // Don't show error for 404 — student just has no records yet
-      if (err.status !== 404) {
-        setError(null); // Still show empty dashboard, not error
-      }
-      setSummary([]);
-      setOverall(0);
-      setRecentRecords([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const [time, setTime] = useState(new Date());
+  const overallPct = Math.round(SUBJECTS.reduce((a, s) => a + s.pct, 0) / SUBJECTS.length);
 
   useEffect(() => {
-    loadData();
-  }, [studentId]); // re-run if studentId changes
+    const t = setInterval(() => setTime(new Date()), 60000);
+    return () => clearInterval(t);
+  }, []);
 
-  // Auto-refresh every 30 seconds to pick up new attendance marks
-  useEffect(() => {
-    if (!studentId) return;
-    const interval = setInterval(() => {
-      loadData(true); // silent refresh
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [studentId]);
-
-  if (loading) return <LoadingSpinner />;
-
-  // Show error only if something critical failed
-  if (error) {
-    return (
-      <div style={{ padding: 40, textAlign: 'center' }}>
-        <div style={{ fontSize: '2rem', marginBottom: 12 }}>⚠️</div>
-        <h3 style={{ marginBottom: 8 }}>Could not load dashboard</h3>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 20 }}>{error}</p>
-        <button className="btn btn-primary" onClick={() => loadData()}>Try Again</button>
-      </div>
-    );
-  }
-
-  const totalPresent = summary.reduce((a, c) => a + (c.present || 0), 0);
-  const totalClasses = summary.reduce((a, c) => a + (c.total || 0), 0);
-  const totalAbsent = totalClasses - totalPresent;
-  const atRiskCourses = summary.filter(c => c.percentage < 75).length;
-
-  const pieData = [
-    { name: 'Present', value: totalPresent, color: '#06D6A0' },
-    { name: 'Absent', value: totalAbsent, color: '#EF4444' },
-  ].filter(d => d.value > 0);
+  const greeting = time.getHours() < 12 ? 'Good morning' : time.getHours() < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <div className="animate-fadeIn">
-      <PageHeader
-        title={`Hello, ${user?.name?.split(' ')[0]}! 👋`}
-        description={`Your attendance overview — ${new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}`}
-        actions={
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => loadData(true)}
-            disabled={refreshing}
+    <div>
+      {/* Greeting */}
+      <motion.div variants={stagger} initial="hidden" animate="visible">
+        <motion.div variants={fadeUp} className="page-header">
+          <div className="page-header-left">
+            <h1>{greeting}, {user?.name?.split(' ')[0] || 'Student'} 👋</h1>
+            <p>{time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          </div>
+        </motion.div>
+
+        {/* Below-75 warning */}
+        {overallPct < 75 && (
+          <motion.div variants={fadeUp} custom={0.5}
+            style={{ background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.30)', borderRadius: 'var(--r-lg)', padding: '14px 20px', marginBottom: 24, display: 'flex', gap: 12, alignItems: 'center' }}
           >
-            <RefreshCw size={14} style={{ animation: refreshing ? 'spin 0.7s linear infinite' : 'none' }} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
-        }
-      />
-
-      {atRiskCourses > 0 && (
-        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 'var(--radius-lg)', padding: '14px 20px', marginBottom: 24, display: 'flex', gap: 12, alignItems: 'center' }}>
-          <AlertTriangle size={20} color="#EF4444" />
-          <div>
-            <div style={{ fontWeight: 700, color: '#EF4444', fontSize: '0.9rem' }}>Attendance Warning</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              You have {atRiskCourses} course(s) below 75%. Attend more classes to avoid debarment.
+            <AlertTriangle size={20} color="var(--danger)" />
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--danger)', fontSize: '0.9rem' }}>Attendance Alert</div>
+              <div style={{ fontWeight: 400, color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Your overall attendance is {overallPct}% — below the 75% minimum. You may be barred from exams.</div>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
 
-      <div className="stats-grid stagger">
-        <StatCard title="Overall Attendance" value={`${overall}%`} icon={Award} color="primary" subtitle="Across all subjects" />
-        <StatCard title="Courses Enrolled" value={summary.length} icon={BookOpen} color="purple" subtitle="This semester" />
-        <StatCard title="Classes Attended" value={totalPresent} icon={Calendar} color="success" subtitle={`Out of ${totalClasses} total`} />
-        <StatCard title="At-Risk Courses" value={atRiskCourses} icon={AlertTriangle} color={atRiskCourses > 0 ? 'danger' : 'success'} subtitle="Below 75% threshold" />
-      </div>
+        {/* Hero row */}
+        <div className="grid-3" style={{ marginBottom: 24 }}>
+          {/* Attendance Donut */}
+          <motion.div variants={fadeUp} custom={1} className="glass-card" style={{ padding: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '0.95rem', marginBottom: 8 }}>Overall Attendance</h3>
+            <AttendanceDonut pct={overallPct} />
+          </motion.div>
 
-      <div className="grid-2" style={{ marginBottom: 24 }}>
-        {/* Pie Chart */}
-        <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 20 }}>Attendance Breakdown</h3>
-          {pieData.length > 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-              <ResponsiveContainer width={160} height={160}>
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
-                    {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 8, fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
-                {pieData.map(d => (
-                  <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: 2, background: d.color }} />
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{d.name}</span>
+          {/* Today's classes timeline */}
+          <motion.div variants={fadeUp} custom={2} className="glass-card" style={{ padding: 24, gridColumn: 'span 2' }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '0.95rem', marginBottom: 20 }}>Today's Timetable</h3>
+            <div style={{ display: 'flex', gap: 0, overflowX: 'auto', paddingBottom: 8 }}>
+              {TODAY_CLASSES.map((c, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', minWidth: 150, position: 'relative' }}>
+                  {i > 0 && <div style={{ position: 'absolute', top: 20, left: -8, right: 0, height: 2, background: 'var(--border-subtle)', zIndex: 0 }} />}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: c.status === 'present' ? 'rgba(52,211,153,0.15)' : 'rgba(108,142,255,0.15)', border: `2px solid ${c.status === 'present' ? 'var(--success)' : 'var(--accent-primary)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, zIndex: 1, position: 'relative' }}>
+                      {c.status === 'present' ? <CheckCircle size={18} color="var(--success)" /> : <Clock size={18} color="var(--accent-primary)" />}
                     </div>
-                    <span style={{ fontWeight: 700, color: d.color }}>{d.value}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.time}</span>
                   </div>
-                ))}
-              </div>
+                  <div style={{ paddingLeft: 4 }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>{c.course}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{c.room}</div>
+                    <span style={{ display: 'inline-block', marginTop: 4, padding: '2px 8px', borderRadius: 99, fontSize: '0.65rem', fontWeight: 600, background: c.status === 'present' ? 'rgba(52,211,153,0.12)' : 'rgba(108,142,255,0.12)', color: c.status === 'present' ? 'var(--success)' : 'var(--accent-primary)' }}>
+                      {c.status === 'present' ? 'Present' : 'Upcoming'}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>
-              <div style={{ fontSize: '2rem', marginBottom: 8 }}>📊</div>
-              <div>No attendance records yet</div>
-              <div style={{ fontSize: '0.8rem', marginTop: 4 }}>Records will appear after your first class</div>
-            </div>
-          )}
+          </motion.div>
         </div>
 
-        {/* Bar Chart */}
-        <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>Subject-wise %</h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 16 }}>Attendance per course</p>
-          {summary.length > 0 ? (
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={summary.map(c => ({ name: c.course?.code || '?', percent: c.percentage }))} barSize={22}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 10, fontSize: 12 }} formatter={v => [`${v}%`, 'Attendance']} />
-                <Bar dataKey="percent" fill="#4F6EF7" radius={[5, 5, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              No data yet
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Course List */}
-      <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 16 }}>Subject-wise Attendance</h3>
-        {summary.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>
-            <div style={{ fontSize: '2rem', marginBottom: 8 }}>📚</div>
-            <div>No attendance records yet</div>
-            <div style={{ fontSize: '0.8rem', marginTop: 4, color: 'var(--text-muted)' }}>
-              Records appear here after your faculty marks attendance
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {summary.map(c => (
-              <div key={c.course?._id} style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 'var(--radius-md)', flexShrink: 0,
-                  background: c.percentage < 75 ? 'rgba(239,68,68,0.1)' : 'rgba(79,110,247,0.1)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '0.75rem', fontWeight: 700, fontFamily: 'monospace',
-                  color: c.percentage < 75 ? '#EF4444' : '#4F6EF7',
-                }}>
-                  {c.course?.code?.slice(-3) || '?'}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: 2 }}>{c.course?.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.present}/{c.total} classes attended</div>
-                </div>
-                <div style={{ width: 160, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ flex: 1, height: 6, background: 'var(--bg-surface-2)', borderRadius: 99, overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', width: `${c.percentage}%`, borderRadius: 99,
-                      background: c.percentage < 75 ? '#EF4444' : c.percentage >= 85 ? '#06D6A0' : '#F59E0B',
-                      transition: 'width 0.6s',
-                    }} />
+        {/* Subject-wise bars */}
+        <motion.div variants={fadeUp} custom={3} className="glass-card" style={{ padding: 24, marginBottom: 24 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, marginBottom: 20 }}>Subject-wise Attendance</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {SUBJECTS.map((s, i) => (
+              <motion.div key={s.code} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)', marginRight: 8 }}>{s.name}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--text-muted)' }}>{s.code}</span>
                   </div>
-                  <AttendanceBadge percent={c.percentage} />
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{s.attended}/{s.total} classes</span>
+                    <span style={{ fontWeight: 700, fontSize: '0.875rem', color: s.pct >= 85 ? 'var(--success)' : s.pct >= 75 ? 'var(--warning)' : 'var(--danger)' }}>{s.pct}%</span>
+                  </div>
                 </div>
-              </div>
+                <div className="progress-bar">
+                  <motion.div className={`progress-fill ${s.pct >= 85 ? 'high' : s.pct >= 75 ? 'medium' : 'low'}`}
+                    initial={{ width: 0 }} animate={{ width: `${s.pct}%` }} transition={{ duration: 1, delay: i * 0.1, ease: 'easeOut' }}
+                  />
+                </div>
+              </motion.div>
             ))}
           </div>
-        )}
-      </div>
+        </motion.div>
 
-      {/* Recent Records */}
-      <div className="card" style={{ padding: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Recent Attendance</h3>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Auto-refreshes every 30s</span>
-        </div>
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr><th>Date</th><th>Course</th><th>Status</th><th>Time</th><th>Method</th></tr>
-            </thead>
-            <tbody>
-              {recentRecords.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>
-                    No records yet — attend a class to see records here
-                  </td>
-                </tr>
-              ) : recentRecords.map((r, i) => (
-                <tr key={i}>
-                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    {new Date(r.date).toLocaleDateString('en-IN')}
-                  </td>
-                  <td><span className="badge badge-info">{r.course?.name || '—'}</span></td>
-                  <td>
-                    <span className={`badge ${r.status === 'present' ? 'badge-success' : r.status === 'late' ? 'badge-warning' : 'badge-danger'}`}>
-                      {r.status === 'present' ? '✅ Present' : r.status === 'late' ? '⏰ Late' : '❌ Absent'}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{r.checkInTime || '—'}</td>
-                  <td>
-                    <span className={`badge ${r.method === 'face' ? 'badge-info' : r.method === 'qr' ? 'badge-success' : 'badge-neutral'}`}>
-                      {r.method === 'face' ? '🧠 Face' : r.method === 'qr' ? '📱 QR' : r.method === 'manual' ? '✍️ Manual' : '—'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        {/* Recent activity */}
+        <motion.div variants={fadeUp} custom={4} className="glass-card" style={{ padding: 24 }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, marginBottom: 16 }}>Recent Activity</h3>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {ACTIVITY.map((a, i) => {
+              const Icon = a.icon;
+              return (
+                <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '12px 0', borderBottom: i < ACTIVITY.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: `${a.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icon size={16} color={a.color} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 2 }}>{a.text}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{a.time}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }

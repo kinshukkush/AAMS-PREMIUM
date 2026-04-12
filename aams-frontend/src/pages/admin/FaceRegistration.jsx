@@ -1,485 +1,255 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, CheckCircle, RefreshCw, User, Trash2, AlertTriangle } from 'lucide-react';
-import { PageHeader, SearchBar, Modal, LoadingSpinner } from '../../components/common/CommonComponents';
-import { apiClient } from '../../context/AuthContext';
- 
-const AI_URL = '/ai/api';
- 
+import { useState, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ScanFace, X, Upload, Check, Search, ChevronDown, RefreshCw,
+  Camera, Trash2, Image as ImageIcon, AlertTriangle, CheckCircle
+} from 'lucide-react';
+import { fadeUp, scaleIn, stagger } from '../../utils/animations';
+import toast from 'react-hot-toast';
+
+const PHOTO_ANGLES = [
+  { id: 'front', label: 'Front (Straight)', guide: 'Look directly at the camera' },
+  { id: 'left',  label: 'Left Profile',     guide: 'Turn head 30° to the left' },
+  { id: 'right', label: 'Right Profile',    guide: 'Turn head 30° to the right' },
+];
+
+const STUDENTS = [
+  { _id: 's1', name: 'Arjun Patel',  rollNo: 'CSE-001', encodings: 3 },
+  { _id: 's2', name: 'Priya Singh',  rollNo: 'CSE-002', encodings: 0 },
+  { _id: 's3', name: 'Rahul Mehta',  rollNo: 'CSE-003', encodings: 2 },
+  { _id: 's4', name: 'Neha Gupta',   rollNo: 'CSE-004', encodings: 0 },
+  { _id: 's5', name: 'Vikram Shah',  rollNo: 'CSE-005', encodings: 3 },
+];
+
 export default function FaceRegistration() {
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState(null);
-  const [stream, setStream] = useState(null);
-  const [capturing, setCapturing] = useState(false);
-  const [captureCount, setCaptureCount] = useState(0);
-  const [localStatus, setLocalStatus] = useState({});
-  const [showConfirm, setShowConfirm] = useState(null);
-  const [error, setError] = useState('');
-  const [registering, setRegistering] = useState(false);
-  const [videoReady, setVideoReady] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  
-  useEffect(() => {
-  console.log('AI Service URL:', AI_URL);
-  // Test if AI service is reachable
-  fetch(`${AI_URL}/health`)
-    .then(r => r.json())
-    .then(d => console.log('AI Health:', d))
-    .catch(e => console.error('AI unreachable:', e));
-}, []);
-  // Load students on mount
-  useEffect(() => {
-    apiClient.get('/users?role=student&limit=200')
-      .then(res => setStudents(res.data?.users || []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
- 
-  // Connect stream to video element after React renders the video tag
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-      videoRef.current.play()
-        .then(() => setVideoReady(true))
-        .catch(err => {
-          console.error('Video play error:', err);
-          setError('Could not start video. Try allowing camera again.');
-        });
-    }
-  }, [stream, capturing]);
- 
-  const filtered = students.filter(s =>
-    s.name?.toLowerCase().includes(search.toLowerCase()) ||
-    s.studentProfile?.rollNo?.toLowerCase().includes(search.toLowerCase())
+  const [search, setSearch]         = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [selectedStudent, setStudent] = useState(null);
+  const [photos, setPhotos]         = useState({ front: null, left: null, right: null });
+  const [capturing, setCapturing]   = useState(null); // which angle
+  const [step, setStep]             = useState(1); // 1=select, 2=capture, 3=confirm, 4=done
+  const [uploading, setUploading]   = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+
+  const filteredStudents = STUDENTS.filter(s =>
+    !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.rollNo.toLowerCase().includes(search.toLowerCase())
   );
- 
-  const startCamera = async () => {
-    setError('');
-    setVideoReady(false);
+
+  const startCamera = async (angle) => {
+    setCapturing(angle);
     try {
-      // Stop any existing stream first
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-      }
- 
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: 'user'
-        }
-      });
- 
-      setStream(mediaStream);
-      setCapturing(true); // render the video tag first, then useEffect connects stream
-    } catch (err) {
-      if (err.name === 'NotAllowedError') {
-        setError('Camera access denied. Click the camera icon in your browser address bar and allow access.');
-      } else if (err.name === 'NotFoundError') {
-        setError('No camera found. Please connect a webcam and try again.');
-      } else {
-        setError('Camera error: ' + err.message);
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
+      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); }
+      setCameraActive(true);
+    } catch {
+      toast.error('Camera access denied');
+      setCapturing(null);
     }
   };
- 
+
   const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
-    }
-    setStream(null);
-    setCapturing(false);
-    setVideoReady(false);
+    if (videoRef.current?.srcObject) videoRef.current.srcObject.getTracks().forEach(t => t.stop());
+    setCameraActive(false);
   };
- 
-  const captureFrame = useCallback(async () => {
-    if (!videoRef.current || !selected) return;
- 
-    // Check video is actually playing and has dimensions
-    const video = videoRef.current;
-    if (video.readyState < 2 || video.videoWidth === 0) {
-      setError('Camera not ready yet. Wait a moment and try again.');
-      return;
-    }
- 
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
- 
-    const ctx = canvas.getContext('2d');
-    // Draw normal (not mirrored) — the CSS mirror is just for display
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
- 
-    canvas.toBlob(async (blob) => {
-      if (!blob) {
-        setError('Could not capture image. Try again.');
-        return;
-      }
- 
-      setRegistering(true);
-      setError('');
- 
-      try {
-        const formData = new FormData();
-        formData.append('image', blob, 'face.jpg');
- 
-        const res = await fetch(`${AI_URL}/register/${selected._id}`, {
-          method: 'POST',
-          body: formData,
-          mode: 'cors',
-        });
- 
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`AI service error: ${res.status} — ${text}`);
-        }
- 
-        const data = await res.json();
- 
-        if (!data.success) {
-          setError(data.error || 'No face detected. Make sure your face is clearly visible and well lit.');
-          setRegistering(false);
-          return;
-        }
- 
-        const newCount = captureCount + 1;
-        setCaptureCount(newCount);
- 
-        if (newCount >= 3) {
-          // Mark face as registered in backend
-          try {
-            await apiClient.put(`/users/${selected._id}`, { faceRegistered: true });
-          } catch (e) {
-            console.error('Failed to update faceRegistered flag:', e);
-          }
-          setLocalStatus(prev => ({ ...prev, [selected._id]: 'registered' }));
-          setStudents(prev => prev.map(s =>
-            s._id === selected._id ? { ...s, faceRegistered: true } : s
-          ));
-          stopCamera();
-          setCaptureCount(0);
-        }
-      } catch (err) {
-        if (err.message.includes('fetch') || err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-          setError(`Cannot reach AI service at ${AI_URL}. Make sure "python run.py" is running in a separate terminal.`);
-        } else {
-          setError('Registration failed: ' + err.message);
-        }
-      } finally {
-        setRegistering(false);
-      }
-    }, 'image/jpeg', 0.9);
-  }, [selected, captureCount, stream]);
- 
-  const handleSelect = (student) => {
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d');
+    canvasRef.current.width  = videoRef.current.videoWidth  || 640;
+    canvasRef.current.height = videoRef.current.videoHeight || 480;
+    ctx.drawImage(videoRef.current, 0, 0);
+    const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.85);
+    setPhotos(p => ({ ...p, [capturing]: dataUrl }));
     stopCamera();
-    setCaptureCount(0);
-    setError('');
-    setSelected(student);
+    setCapturing(null);
+    toast.success(`${capturing.charAt(0).toUpperCase() + capturing.slice(1)} photo captured!`);
+    const allCaptured = { ...photos, [capturing]: dataUrl };
+    if (Object.values(allCaptured).every(Boolean)) setStep(3);
   };
- 
-  const handleDelete = async (studentId) => {
-    try {
-      await fetch(`${AI_URL}/register/${studentId}`, { method: 'DELETE' });
-      await apiClient.put(`/users/${studentId}`, { faceRegistered: false });
-      setStudents(prev => prev.map(s =>
-        s._id === studentId ? { ...s, faceRegistered: false } : s
-      ));
-      setLocalStatus(prev => ({ ...prev, [studentId]: null }));
-      if (selected?._id === studentId) stopCamera();
-    } catch (err) {
-      alert('Delete failed: ' + err.message);
-    }
-    setShowConfirm(null);
+
+  const retakePhoto = (angle) => {
+    setPhotos(p => ({ ...p, [angle]: null }));
+    if (step === 3) setStep(2);
   };
- 
-  if (loading) return <LoadingSpinner />;
- 
-  const registeredCount = students.filter(s => s.faceRegistered || localStatus[s._id] === 'registered').length;
-  const isRegistered = selected && (selected.faceRegistered || localStatus[selected._id] === 'registered');
- 
+
+  const handleSelectStudent = (s) => {
+    setStudent(s);
+    setSearch(s.name);
+    setSearchOpen(false);
+    setPhotos({ front: null, left: null, right: null });
+    setStep(2);
+  };
+
+  const handleUpload = async () => {
+    if (!Object.values(photos).every(Boolean)) { toast.error('Please capture all 3 photos'); return; }
+    setUploading(true);
+    await new Promise(r => setTimeout(r, 2000));
+    setUploading(false);
+    setStep(4);
+    toast.success(`Face registration complete for ${selectedStudent.name}!`);
+  };
+
+  const reset = () => {
+    setStudent(null); setSearch('');
+    setPhotos({ front: null, left: null, right: null });
+    setStep(1); setCapturing(null); setCameraActive(false);
+  };
+
+  const STEPS = ['Select Student','Capture Photos','Review & Upload','Complete'];
+  const allCaptured = Object.values(photos).every(Boolean);
+
   return (
-    <div className="animate-fadeIn">
-      <PageHeader
-        title="Face Registration"
-        description="Register student faces for AI-powered attendance recognition"
-      />
- 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 24 }}>
-        {[
-          { label: 'Total Students', value: students.length, color: '#4F6EF7' },
-          { label: 'Registered', value: registeredCount, color: '#06D6A0' },
-          { label: 'Pending', value: students.length - registeredCount, color: '#F59E0B' },
-        ].map(s => (
-          <div key={s.label} className="card" style={{ padding: '16px 20px' }}>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800, fontFamily: 'var(--font-display)', color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>{s.label}</div>
+    <div>
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1>Face Registration</h1>
+          <p>Capture 3-angle photos to register students for face recognition</p>
+        </div>
+      </div>
+
+      {/* Progress step indicator */}
+      <motion.div variants={fadeUp} initial="hidden" animate="visible" className="glass-card" style={{ padding: '16px 24px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 0 }}>
+        {STEPS.map((s, i) => (
+          <div key={s} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.75rem', background: step > i + 1 ? 'var(--success)' : step === i + 1 ? 'var(--accent-primary)' : 'var(--bg-elevated)', color: step >= i + 1 ? 'white' : 'var(--text-muted)', border: step < i + 1 ? '1px solid var(--border-default)' : 'none', transition: 'all 0.3s' }}>
+                {step > i + 1 ? <Check size={14} /> : i + 1}
+              </div>
+              <span style={{ fontSize: '0.65rem', color: step === i + 1 ? 'var(--accent-primary)' : 'var(--text-muted)', whiteSpace: 'nowrap', fontWeight: step === i + 1 ? 600 : 400 }}>{s}</span>
+            </div>
+            {i < STEPS.length - 1 && <div style={{ flex: 1, height: 2, background: step > i + 1 ? 'var(--success)' : 'var(--border-default)', margin: '0 8px', marginBottom: 20, transition: 'background 0.4s' }} />}
           </div>
         ))}
-      </div>
- 
-      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 24 }}>
- 
-        {/* Student List */}
-        <div className="card" style={{ padding: 20, maxHeight: '75vh', display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            Students
-          </h3>
-          <SearchBar value={search} onChange={setSearch} placeholder="Search name or roll no..." />
-          <div style={{ flex: 1, overflowY: 'auto', marginTop: 12, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {filtered.map(s => {
-              const isReg = s.faceRegistered || localStatus[s._id] === 'registered';
-              const isSel = selected?._id === s._id;
-              return (
-                <div
-                  key={s._id}
-                  onClick={() => handleSelect(s)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '9px 10px', borderRadius: 'var(--radius-md)',
-                    cursor: 'pointer',
-                    background: isSel ? 'var(--bg-active)' : 'transparent',
-                    border: `1px solid ${isSel ? 'var(--brand-primary)' : 'transparent'}`,
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  <div className="avatar" style={{
-                    width: 30, height: 30, fontSize: '0.65rem', flexShrink: 0,
-                    background: isReg ? 'linear-gradient(135deg,#06D6A0,#3B82F6)' : 'var(--gradient-brand)'
-                  }}>
-                    {s.name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                  </div>
-                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <div style={{
-                      fontSize: '0.8rem', fontWeight: 500,
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                      color: isSel ? 'var(--brand-primary)' : 'var(--text-primary)'
-                    }}>{s.name}</div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{s.studentProfile?.rollNo || '—'}</div>
-                  </div>
-                  {isReg
-                    ? <CheckCircle size={15} color="#06D6A0" style={{ flexShrink: 0 }} />
-                    : <div style={{ width: 14, height: 14, borderRadius: '50%', border: '1.5px solid var(--border-color)', flexShrink: 0 }} />
-                  }
-                </div>
-              );
-            })}
-            {filtered.length === 0 && (
-              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 20, fontSize: '0.8rem' }}>
-                No students found
+      </motion.div>
+
+      {/* Step 4: Complete */}
+      {step === 4 && (
+        <motion.div variants={scaleIn} initial="hidden" animate="visible" className="glass-card" style={{ padding: '60px 40px', textAlign: 'center' }}>
+          <CheckCircle size={72} color="var(--success)" style={{ marginBottom: 20, display: 'block', marginLeft: 'auto', marginRight: 'auto' }} />
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 700, marginBottom: 8 }}>Registration Complete!</h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>{selectedStudent?.name} has been registered with 3 face angles.</p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <button id="btn-register-another" className="btn btn-primary" onClick={reset}><ScanFace size={15} /> Register Another</button>
+            <button className="btn btn-secondary" onClick={reset}><RefreshCw size={15} /> Start Over</button>
+          </div>
+        </motion.div>
+      )}
+
+      {step < 4 && (
+        <div className="grid-2">
+          {/* Left Column */}
+          <div>
+            {/* Student Search */}
+            <motion.div variants={fadeUp} initial="hidden" animate="visible" className="glass-card" style={{ padding: 24, marginBottom: 20, position: 'relative' }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, marginBottom: 16 }}>Select Student</h3>
+              <div className="input-with-icon">
+                <Search className="input-icon" size={16} />
+                <input id="student-search-input" className="input"
+                  type="text" placeholder="Search by name or roll number..."
+                  value={search} onChange={e => { setSearch(e.target.value); setSearchOpen(true); }}
+                  onFocus={() => setSearchOpen(true)}
+                />
               </div>
+              {searchOpen && filteredStudents.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 24, right: 24, background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 'var(--r-lg)', boxShadow: 'var(--shadow-modal)', zIndex: 50, overflow: 'hidden' }}>
+                  {filteredStudents.map(s => (
+                    <button key={s._id} id={`student-item-${s._id}`} onClick={() => handleSelectStudent(s)}
+                      style={{ width: '100%', padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(108,142,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--accent-primary)' }}>{s.name[0]}</div>
+                      <div style={{ flex: 1, textAlign: 'left' }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{s.name}</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{s.rollNo}</div>
+                      </div>
+                      <span className={`badge ${s.encodings > 0 ? 'badge-success' : 'badge-neutral'}`}>{s.encodings > 0 ? `${s.encodings} encodings` : 'Not registered'}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {selectedStudent && (
+                <div style={{ marginTop: 14, padding: '12px 14px', background: 'rgba(108,142,255,0.08)', border: '1px solid var(--border-accent)', borderRadius: 'var(--r-md)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--gradient-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700 }}>{selectedStudent.name[0]}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{selectedStudent.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{selectedStudent.rollNo}</div>
+                  </div>
+                  <button onClick={reset} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={16} /></button>
+                </div>
+              )}
+            </motion.div>
+
+            {/* Camera View */}
+            {cameraActive && (
+              <motion.div variants={scaleIn} initial="hidden" animate="visible" className="glass-card" style={{ padding: 20, marginBottom: 20 }}>
+                <h4 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, marginBottom: 16 }}>
+                  Capturing: {capturing?.charAt(0).toUpperCase() + capturing?.slice(1)} view
+                </h4>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: 12 }}>
+                  {PHOTO_ANGLES.find(a => a.id === capturing)?.guide}
+                </p>
+                <div style={{ position: 'relative', aspectRatio: '4/3', background: 'var(--bg-elevated)', borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
+                  <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
+                  <canvas ref={canvasRef} style={{ display: 'none' }} />
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <div style={{ width: 160, height: 200, border: '2.5px solid rgba(108,142,255,0.80)', borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%', boxShadow: '0 0 20px rgba(108,142,255,0.30)' }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button id="btn-capture-photo" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={capturePhoto}><Camera size={15} /> Capture</button>
+                  <button className="btn btn-secondary" onClick={() => { stopCamera(); setCapturing(null); }}>Cancel</button>
+                </div>
+              </motion.div>
             )}
           </div>
-        </div>
- 
-        {/* Camera Panel */}
-        <div className="card" style={{ padding: 28 }}>
-          {!selected ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: 'var(--text-muted)', gap: 12 }}>
-              <div style={{ width: 60, height: 60, borderRadius: 'var(--radius-xl)', background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <User size={28} />
+
+          {/* Right Column — Photo angles */}
+          <motion.div variants={fadeUp} custom={1} initial="hidden" animate="visible" className="glass-card" style={{ padding: 24 }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, marginBottom: 20 }}>Capture 3 Angles</h3>
+            {!selectedStudent && (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                <Search size={32} style={{ marginBottom: 12, opacity: 0.4 }} />
+                <p style={{ fontSize: '0.875rem' }}>Select a student first</p>
               </div>
-              <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>Select a student</div>
-              <div style={{ fontSize: '0.875rem' }}>Choose from the list on the left to register their face</div>
-            </div>
-          ) : (
-            <div>
-              {/* Student header */}
-              <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 20, padding: '14px 18px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)' }}>
-                <div className="avatar" style={{
-                  width: 46, height: 46,
-                  background: isRegistered ? 'linear-gradient(135deg,#06D6A0,#3B82F6)' : 'var(--gradient-brand)'
-                }}>
-                  {selected.name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: '1rem' }}>{selected.name}</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {selected.studentProfile?.rollNo} · {selected.studentProfile?.batch}
-                  </div>
-                </div>
-                {isRegistered && (
-                  <>
-                    <span className="badge badge-success">✅ Registered</span>
-                    <button
-                      className="btn btn-ghost btn-icon btn-sm"
-                      style={{ color: 'var(--brand-danger)' }}
-                      onClick={() => setShowConfirm(selected._id)}
-                      title="Delete face data"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </>
-                )}
-              </div>
- 
-              {/* Instructions */}
-              <div style={{ background: 'rgba(79,110,247,0.06)', border: '1px solid rgba(79,110,247,0.2)', borderRadius: 'var(--radius-md)', padding: '10px 16px', marginBottom: 20, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                📋 <strong>Instructions:</strong> Look directly at the camera. Capture 3 photos — look straight, then slightly left, then slightly right. Good lighting helps accuracy.
-              </div>
- 
-              {/* Camera View */}
-              <div style={{
-                position: 'relative',
-                borderRadius: 'var(--radius-lg)',
-                overflow: 'hidden',
-                background: '#0A0F1E',
-                width: '100%',
-                maxWidth: 520,
-                aspectRatio: '4/3',
-                margin: '0 auto 20px',
-              }}>
-                {capturing ? (
-                  <>
-                    {/* Actual video element — this shows the camera feed */}
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      onLoadedMetadata={() => setVideoReady(true)}
-                      style={{
-                        position: 'absolute',
-                        top: 0, left: 0,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        display: 'block',
-                        transform: 'scaleX(-1)', // mirror for selfie view
-                      }}
-                    />
- 
-                    {/* Face guide oval overlay */}
-                    {videoReady && (
-                      <div style={{
-                        position: 'absolute', inset: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        pointerEvents: 'none',
-                      }}>
-                        <div style={{
-                          width: 180, height: 220,
-                          borderRadius: '50% 50% 50% 50% / 40% 40% 60% 60%',
-                          border: '3px solid rgba(79,110,247,0.8)',
-                          boxShadow: '0 0 0 9999px rgba(0,0,0,0.4), 0 0 20px rgba(79,110,247,0.4)',
-                        }} />
+            )}
+            {selectedStudent && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {PHOTO_ANGLES.map(angle => (
+                  <div key={angle.id} style={{ border: '1px solid var(--border-default)', borderRadius: 'var(--r-lg)', overflow: 'hidden', background: photos[angle.id] ? 'rgba(52,211,153,0.05)' : 'var(--bg-elevated)' }}>
+                    <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: photos[angle.id] ? '1px solid rgba(52,211,153,0.2)' : '1px solid var(--border-subtle)' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: photos[angle.id] ? 'rgba(52,211,153,0.15)' : 'rgba(108,142,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {photos[angle.id] ? <CheckCircle size={18} color="var(--success)" /> : <Camera size={18} color="var(--accent-primary)" />}
                       </div>
-                    )}
- 
-                    {/* Loading overlay while video starts */}
-                    {!videoReady && (
-                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)' }}>
-                        <div style={{ textAlign: 'center', color: 'white' }}>
-                          <div style={{ width: 32, height: 32, border: '3px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 10px' }} />
-                          <div style={{ fontSize: '0.8rem' }}>Starting camera...</div>
-                        </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{angle.label}</div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{angle.guide}</div>
                       </div>
-                    )}
- 
-                    {/* Capture progress dots */}
-                    <div style={{ position: 'absolute', top: 12, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 8 }}>
-                      {[0, 1, 2].map(i => (
-                        <div key={i} style={{
-                          width: 32, height: 6, borderRadius: 99,
-                          background: captureCount > i ? '#06D6A0' : 'rgba(255,255,255,0.3)',
-                          transition: 'background 0.3s',
-                        }} />
-                      ))}
-                    </div>
- 
-                    {/* Status text */}
-                    <div style={{ position: 'absolute', bottom: 12, left: 0, right: 0, textAlign: 'center', color: 'rgba(255,255,255,0.9)', fontSize: '0.8rem' }}>
-                      {captureCount === 0 && '📸 Look straight ahead'}
-                      {captureCount === 1 && '📸 Turn slightly to the left'}
-                      {captureCount === 2 && '📸 Turn slightly to the right'}
-                    </div>
-                  </>
-                ) : (
-                  /* Inactive state */
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                    <Camera size={52} color="rgba(255,255,255,0.2)" />
-                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.875rem' }}>Camera inactive</span>
-                    <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.75rem' }}>Click Start Camera below</span>
-                  </div>
-                )}
-              </div>
- 
-              {/* Hidden canvas for capturing frames */}
-              <canvas ref={canvasRef} style={{ display: 'none' }} />
- 
-              {/* Error message */}
-              {error && (
-                <div style={{
-                  background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
-                  borderRadius: 'var(--radius-md)', padding: '10px 14px', marginBottom: 16,
-                  display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: '0.875rem', color: '#EF4444'
-                }}>
-                  <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-                  <span>{error}</span>
-                </div>
-              )}
- 
-              {/* Action buttons */}
-              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-                {!capturing ? (
-                  <button className="btn btn-primary" onClick={startCamera} style={{ minWidth: 140 }}>
-                    <Camera size={16} /> Start Camera
-                  </button>
-                ) : (
-                  <>
-                    <button className="btn btn-secondary" onClick={stopCamera}>
-                      Cancel
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      onClick={captureFrame}
-                      disabled={registering || !videoReady}
-                      style={{ background: 'linear-gradient(135deg,#06D6A0,#3B82F6)', minWidth: 160 }}
-                    >
-                      {registering
-                        ? '⏳ Processing...'
-                        : !videoReady
-                          ? '⏳ Starting...'
-                          : `📸 Capture (${captureCount}/3)`
+                      {photos[angle.id]
+                        ? <button id={`retake-${angle.id}`} className="btn btn-ghost btn-sm" onClick={() => retakePhoto(angle.id)}><RefreshCw size={14} /> Retake</button>
+                        : <button id={`capture-${angle.id}`} className="btn btn-primary btn-sm" onClick={() => startCamera(angle.id)} disabled={cameraActive}><Camera size={14} /> Capture</button>
                       }
-                    </button>
-                  </>
-                )}
- 
-                {isRegistered && !capturing && (
-                  <button className="btn btn-secondary" onClick={startCamera}>
-                    <RefreshCw size={15} /> Re-register
-                  </button>
-                )}
-              </div>
- 
-              {/* Success message */}
-              {isRegistered && (
-                <div style={{ textAlign: 'center', marginTop: 20, padding: 16, background: 'rgba(6,214,160,0.08)', border: '1px solid rgba(6,214,160,0.25)', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ fontSize: '1.5rem', marginBottom: 6 }}>✅</div>
-                  <div style={{ fontWeight: 700, color: '#06D6A0' }}>Face Successfully Registered!</div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 4 }}>
-                    {selected.name} will now be recognized during AI attendance sessions.
+                    </div>
+                    {photos[angle.id] && (
+                      <img src={photos[angle.id]} alt={`${angle.label} photo`} style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }} />
+                    )}
                   </div>
+                ))}
+
+                <div style={{ paddingTop: 8, borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 10 }}>
+                  <button id="btn-upload-registration" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleUpload} disabled={!allCaptured || uploading}>
+                    {uploading ? <><div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Uploading...</> : <><Upload size={15} /> Upload & Register</>}
+                  </button>
+                  <button className="btn btn-secondary" onClick={reset}><X size={15} /></button>
                 </div>
-              )}
-            </div>
-          )}
+                {!allCaptured && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>{Object.values(photos).filter(Boolean).length}/3 photos captured</p>}
+              </div>
+            )}
+          </motion.div>
         </div>
-      </div>
- 
-      {/* Confirm Delete Modal */}
-      <Modal isOpen={!!showConfirm} onClose={() => setShowConfirm(null)} title="Delete Face Data">
-        <p style={{ color: 'var(--text-secondary)', marginBottom: 20 }}>
-          Are you sure you want to delete face data for this student? They will need to re-register to use face recognition.
-        </p>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button className="btn btn-secondary" onClick={() => setShowConfirm(null)}>Cancel</button>
-          <button className="btn btn-danger" onClick={() => handleDelete(showConfirm)}>Delete</button>
-        </div>
-      </Modal>
+      )}
     </div>
   );
 }

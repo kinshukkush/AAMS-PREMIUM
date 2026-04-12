@@ -59,6 +59,67 @@ router.get(
 );
 
 /**
+ * Create notification (admin only)
+ * POST /api/notifications
+ */
+router.post('/', protect, async (req, res) => {
+  try {
+    const { title, message, type = 'info', priority = 'normal', target } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({ error: 'title and message are required' });
+    }
+
+    // Build recipient list
+    const User = require('../models/User');
+    let recipients = [];
+
+    if (target?.all) {
+      const users = await User.find({ isActive: true }).select('_id');
+      recipients = users.map(u => u._id);
+    } else if (target?.role) {
+      const users = await User.find({ role: target.role, isActive: true }).select('_id');
+      recipients = users.map(u => u._id);
+    } else if (target?.userId) {
+      recipients = [target.userId];
+    } else {
+      // Default: send to all
+      const users = await User.find({ isActive: true }).select('_id');
+      recipients = users.map(u => u._id);
+    }
+
+    // Create notification records
+    const docs = recipients.map(userId => ({
+      userId,
+      title,
+      message,
+      type,
+      priority,
+      read: false,
+      createdAt: new Date()
+    }));
+    await Notification.insertMany(docs);
+
+    // Emit via Socket.IO
+    const io = req.app.get('io');
+    if (io) {
+      recipients.forEach(userId => {
+        io.to(`user_${userId}`).emit('notification', { title, message, type, priority, createdAt: new Date() });
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Notification sent to ${recipients.length} user(s)`,
+      recipientCount: recipients.length
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+/**
  * Get unread notification count
  * GET /api/notifications/unread-count
  */

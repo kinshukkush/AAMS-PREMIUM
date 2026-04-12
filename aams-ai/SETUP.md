@@ -34,8 +34,6 @@ docker-compose up -d ai-service
 python -m venv venv
 
 # 2. Activate virtual environment
-# macOS/Linux:
-source venv/bin/activate
 # Windows:
 venv\Scripts\activate
 
