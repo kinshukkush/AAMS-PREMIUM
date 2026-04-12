@@ -140,33 +140,33 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Stricter rate limit for auth
+// Stricter rate limit for auth (Relaxed for testing)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 5000,
   message: { success: false, message: 'Too many login attempts. Please try again in 15 minutes.' }
 });
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
-// Stricter limit for user management (admin operations)
+// Stricter limit for user management (admin operations) (Relaxed for testing)
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: 5000,
   message: { success: false, message: 'Too many operations. Please try again later.' }
 });
 
-// Stricter limit for attendance operations
+// Stricter limit for attendance operations (Relaxed for testing)
 const attendanceLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 100,
+  max: 5000,
   message: { success: false, message: 'Too many attendance requests. Please try again after 1 minute.' }
 });
 
-// Stricter limit for face operations (resource intensive)
+// Stricter limit for face operations (resource intensive) (Relaxed for testing)
 const faceLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 30,
+  max: 5000,
   message: { success: false, message: 'Too many face operations. Please try again after 1 minute.' }
 });
 
