@@ -7,10 +7,16 @@ const redis = require('redis');
 const logger = console; // Replace with proper logging
 
 // Redis client configuration
+const redisOptions = process.env.REDIS_URL 
+  ? { url: process.env.REDIS_URL } 
+  : {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: process.env.REDIS_PORT || 6379,
+      db: process.env.REDIS_DB || 0,
+    };
+
 const redisClient = redis.createClient({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: process.env.REDIS_PORT || 6379,
-  db: process.env.REDIS_DB || 0,
+  ...redisOptions,
   retryStrategy: (options) => {
     if (options.error && options.error.code === 'ECONNREFUSED') {
       logger.warn('Redis connection refused - using in-memory fallback');

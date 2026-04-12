@@ -13,7 +13,7 @@ class NotificationService {
       service: process.env.EMAIL_SERVICE || 'gmail',
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
+        pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS
       }
     });
 

@@ -14,7 +14,11 @@ export const useRealtime = () => {
 
   useEffect(() => {
     // Connect to socket.io server
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const socketUrl = import.meta.env.VITE_SOCKET_URL
+      || (apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl);
+
+    const socket = io(socketUrl || 'http://localhost:5000', {
       auth: {
         token: localStorage.getItem('aams_token')
       },

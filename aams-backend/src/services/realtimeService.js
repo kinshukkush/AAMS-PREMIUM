@@ -7,9 +7,17 @@ const socketIO = require('socket.io');
 
 class RealtimeService {
   constructor(httpServer) {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'http://localhost:3000',
+      'http://localhost:19006',
+      'http://localhost:8081',
+      'http://localhost:5173'
+    ].filter(Boolean);
+
     this.io = socketIO(httpServer, {
       cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+        origin: allowedOrigins,
         credentials: true
       },
       transports: ['websocket', 'polling']

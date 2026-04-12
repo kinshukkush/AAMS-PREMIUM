@@ -56,7 +56,8 @@ const register = asyncHandler(async (req, res) => {
     { expiresIn: '24h' }
   );
   
-  const resetUrl = `${process.env.CLIENT_URL}/setup-password/${resetToken}`;
+  const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+  const resetUrl = `${clientUrl}/setup-password/${resetToken}`;
 
   // Send welcome email with secure reset link (non-blocking)
   sendWelcomeEmailWithResetLink(user.email, user.name, user.role, resetUrl).catch(console.error);
