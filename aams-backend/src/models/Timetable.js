@@ -6,7 +6,7 @@ const timetableSchema = new mongoose.Schema({
     ref: 'Course',
     required: true
   },
-  faculty: {
+  teacher: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
@@ -19,8 +19,9 @@ const timetableSchema = new mongoose.Schema({
   batch: { type: String, required: true },         // e.g. "B.Tech CSE 2021"
   section: { type: String, required: true },        // e.g. "A"
   dayOfWeek: {
-    type: String,
-    enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+    type: Number,
+    min: 0,
+    max: 6,
     required: true
   },
   startTime: { type: String, required: true },     // "09:00"
@@ -31,7 +32,7 @@ const timetableSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
-timetableSchema.index({ faculty: 1, dayOfWeek: 1 });
+timetableSchema.index({ teacher: 1, dayOfWeek: 1 });
 timetableSchema.index({ department: 1, batch: 1, section: 1 });
 
 module.exports = mongoose.model('Timetable', timetableSchema);

@@ -28,10 +28,10 @@ const attendanceRecordSchema = new mongoose.Schema({
     required: true
   },
   checkInTime: { type: String, default: null },      // "09:03"
-  method: {
+  verificationMethod: {
     type: String,
     enum: ['face', 'qr', 'manual'],
-    default: 'manual'
+    required: true
   },
   confidence: { type: Number, default: null },        // Face recognition confidence %
   markedBy: {

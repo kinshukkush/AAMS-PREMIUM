@@ -73,6 +73,11 @@ export default function StudentDashboard() {
           <div className="page-header-left">
             <h1>{greeting}, {user?.name?.split(' ')[0] || 'Student'} 👋</h1>
             <p>{time.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            {user?.studentProfile?.section && (
+              <p style={{ marginTop: 4, fontWeight: 600, color: 'var(--brand-primary)' }}>
+                Section: {user.studentProfile.section}
+              </p>
+            )}
           </div>
         </motion.div>
 

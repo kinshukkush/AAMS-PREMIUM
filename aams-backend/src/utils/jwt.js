@@ -1,7 +1,11 @@
 const jwt = require('jsonwebtoken');
 
-const generateAccessToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+const generateAccessToken = (user) => {
+  const payload = { id: user._id };
+  if (user.isDefaultPassword) {
+    payload.isDefaultPassword = true;
+  }
+  return jwt.sign(payload, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d'
   });
 };
@@ -17,7 +21,7 @@ const verifyRefreshToken = (token) => {
 };
 
 const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
-  const accessToken = generateAccessToken(user._id);
+  const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user._id);
 
   const cookieOptions = {
@@ -27,29 +31,25 @@ const sendTokenResponse = (user, statusCode, res, message = 'Success') => {
     sameSite: 'strict'
   };
 
+  const userData = {
+    id: user._id,
+    name: user.name,
+    role: user.role,
+    enrollmentId: user.enrollmentId,
+    section: user.section,
+    semester: user.semester,
+    isDefaultPassword: user.isDefaultPassword
+  };
+
   res
     .status(statusCode)
     .cookie('accessToken', accessToken, cookieOptions)
     .json({
       success: true,
       message,
-      data: {
-        accessToken,
-        refreshToken,
-        user: {
-          id: user._id,
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          profilePhoto: user.profilePhoto,
-          department: user.department,
-          faceRegistered: user.faceRegistered,
-          studentProfile: user.studentProfile,
-          facultyProfile: user.facultyProfile,
-          parentProfile: user.parentProfile
-        }
-      }
+      token: accessToken,
+      refreshToken: refreshToken,
+      user: userData
     });
 };
 

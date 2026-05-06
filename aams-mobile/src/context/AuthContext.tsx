@@ -13,7 +13,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'faculty' | 'student' | 'parent';
+  role: 'admin' | 'teacher' | 'student' | 'parent';
   avatar?: string;
   department?: string;
   enrolledCourses?: string[];
@@ -25,7 +25,7 @@ interface AuthContextType {
   loading: boolean;
   initializing: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   register: (data: any) => Promise<void>;
   clearError: () => void;
@@ -78,17 +78,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: string, password: string) => {
     setLoading(true);
     setError(null);
 
     try {
       const response = await axios.post(`${API_URL}/api/auth/login`, {
-        email,
+        identifier,
         password
       });
 
-      const { token: newToken, user: userData } = response.data;
+      const { token: newToken, user: userData } = response.data.data;
 
       // Save to AsyncStorage
       await AsyncStorage.setItem('aams_token', newToken);
@@ -138,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const response = await axios.post(`${API_URL}/api/auth/register`, data);
-      const { token: newToken, user: userData } = response.data;
+      const { token: newToken, user: userData } = response.data.data;
 
       await AsyncStorage.setItem('aams_token', newToken);
       await AsyncStorage.setItem('aams_user', JSON.stringify(userData));

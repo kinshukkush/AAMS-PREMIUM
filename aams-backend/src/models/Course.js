@@ -24,6 +24,9 @@ const courseSchema = new mongoose.Schema({
     min: 1,
     max: 12
   },
+  section: { type: String, required: true },
+  enrolledStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   credits: { type: Number, default: 3 },
   description: { type: String },
   isActive: { type: Boolean, default: true }

@@ -13,7 +13,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert
+  Alert,
+  ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -29,7 +30,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const { colors } = useTheme();
   const { login, loading, error, clearError } = useAuth();
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
@@ -49,13 +50,13 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   };
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+    if (!identifier || !password) {
+      Alert.alert('Error', 'Please enter identifier and password');
       return;
     }
 
     try {
-      await login(email, password);
+      await login(identifier, password);
     } catch (error) {
       Alert.alert('Login Failed', error instanceof Error ? error.message : 'Unknown error');
     }
@@ -82,7 +83,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={[styles.container, { backgroundColor: colors.bg }]}
     >
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+        <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <View style={[styles.badgeInfo, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
@@ -112,18 +114,18 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             <Text style={[styles.demoTitle, { color: colors.text2 }]}>DEMO ACCOUNTS</Text>
             
             {( [
-              { role: 'Admin', email: 'admin@aams.demo', pass: 'Admin@123', color: '#8B5CF6' },
-              { role: 'Faculty', email: 'faculty@aams.demo', pass: 'Faculty@123', color: '#10B981' },
-              { role: 'Student', email: 'student@aams.demo', pass: 'Student@123', color: '#F59E0B' }
+              { role: 'Admin', identifier: 'admin@aams.demo', pass: 'Admin@123', color: '#8B5CF6' },
+              { role: 'Teacher', identifier: 'faculty@aams.demo', pass: 'Faculty@123', color: '#10B981' },
+              { role: 'Student', identifier: 'student@aams.demo', pass: 'Student@123', color: '#F59E0B' }
             ] ).map((account) => (
               <TouchableOpacity
                 key={account.role}
                 style={[styles.demoCard, { backgroundColor: colors.bg, borderColor: colors.border }]}
                 onPress={async () => {
-                  setEmail(account.email);
+                  setIdentifier(account.identifier);
                   setPassword(account.pass);
                   try {
-                    await login(account.email, account.pass);
+                    await login(account.identifier, account.pass);
                   } catch (e) {
                     Alert.alert('Login Failed', e instanceof Error ? e.message : 'Unknown error');
                   }
@@ -134,7 +136,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                   <View style={[styles.demoDot, { backgroundColor: account.color, shadowColor: account.color }]} />
                   <View>
                     <Text style={[styles.demoRole, { color: colors.text }]}>{account.role}</Text>
-                    <Text style={[styles.demoEmail, { color: colors.text2 }]}>{account.email}</Text>
+                    <Text style={[styles.demoEmail, { color: colors.text2 }]}>{account.identifier}</Text>
                   </View>
                 </View>
                 <Ionicons name="arrow-forward" size={16} color={colors.text2} />
@@ -142,9 +144,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             ))}
           </View>
 
-          {/* Email Input */}
+          {/* Identifier Input */}
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Email Address</Text>
+            <Text style={[styles.label, { color: colors.text }]}>Email Address or Enrollment ID</Text>
             <View
               style={[
                 styles.inputContainer,
@@ -159,8 +161,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
                 style={[styles.input, { color: colors.text }]}
                 placeholder=""
                 placeholderTextColor={colors.text2}
-                value={email}
-                onChangeText={setEmail}
+                value={identifier}
+                onChangeText={setIdentifier}
                 editable={!loading}
               />
             </View>
@@ -229,7 +231,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
               onPress={handleBiometricLogin}
               disabled={loading}
             >
-              <Ionicons name="fingerprint" size={24} color={colors.primary} />
+              <Ionicons name="finger-print" size={24} color={colors.primary} />
               <Text style={[styles.biometricText, { color: colors.text }]}>
                 Login with Biometric
               </Text>
@@ -246,7 +248,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             <Text style={{ color: colors.primary }}>Privacy Policy</Text>
           </Text>
         </View>
-      </View>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

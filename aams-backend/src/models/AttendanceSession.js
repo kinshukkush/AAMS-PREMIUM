@@ -12,12 +12,12 @@ const attendanceSessionSchema = new mongoose.Schema({
     ref: 'Course',
     required: true
   },
-  faculty: {
+  teacher: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  timetable: {
+  timetableSlot: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Timetable',
     default: null
@@ -38,8 +38,11 @@ const attendanceSessionSchema = new mongoose.Schema({
     default: 'manual'
   },
   room: { type: String },
-  qrCode: { type: String },                          // base64 QR for QR mode
-  qrExpiry: { type: Date },                          // QR code expiry time
+  startedAt: { type: Date, default: Date.now },
+  closedAt: { type: Date },
+  isOpen: { type: Boolean, default: true },
+  currentQrToken: { type: String },
+  qrExpiresAt: { type: Date },
   status: {
     type: String,
     enum: ['active', 'completed', 'cancelled'],
@@ -51,7 +54,7 @@ const attendanceSessionSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 attendanceSessionSchema.index({ course: 1, date: 1 });
-attendanceSessionSchema.index({ faculty: 1, date: 1 });
+attendanceSessionSchema.index({ teacher: 1, date: 1 });
 // NOTE: sessionCode is indexed via `unique: true` on the field — no separate index needed.
 
 module.exports = mongoose.model('AttendanceSession', attendanceSessionSchema);

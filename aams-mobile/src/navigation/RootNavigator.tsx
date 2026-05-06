@@ -21,9 +21,9 @@ import StudentAttendance from '../screens/student/StudentAttendance';
 import QRScannerScreen from '../screens/attendance/QRScannerScreen';
 import FaceAttendanceScreen from '../screens/attendance/FaceAttendanceScreen';
 
-// Faculty Screens
-import FacultyDashboard from '../screens/faculty/FacultyDashboard';
-import MarkAttendanceScreen from '../screens/faculty/MarkAttendanceScreen';
+// Teacher Screens
+import TeacherDashboard from '../screens/teacher/FacultyDashboard';
+import MarkAttendanceScreen from '../screens/teacher/MarkAttendanceScreen';
 
 // Shared Screens
 import ProfileScreen from '../screens/profile/ProfileScreen';
@@ -112,9 +112,9 @@ function StudentTabNavigator() {
 }
 
 /**
- * Faculty Bottom Tab Navigator
+ * Teacher Bottom Tab Navigator
  */
-function FacultyTabNavigator() {
+function TeacherTabNavigator() {
   const { colors } = useTheme();
 
   return (
@@ -148,7 +148,7 @@ function FacultyTabNavigator() {
     >
       <Tab.Screen
         name="Dashboard"
-        component={FacultyDashboard}
+        component={TeacherDashboard}
         options={{ title: 'Dashboard' }}
       />
       <Tab.Screen
@@ -177,9 +177,9 @@ export default function RootNavigator() {
         <Stack.Group screenOptions={{ animationEnabled: false }}>
           <Stack.Screen name="Auth" component={AuthNavigator} />
         </Stack.Group>
-      ) : user.role === 'faculty' || user.role === 'admin' ? (
+      ) : user.role === 'teacher' || user.role === 'faculty' || user.role === 'admin' ? (
         <Stack.Group screenOptions={{ animationEnabled: false }}>
-          <Stack.Screen name="FacultyTabs" component={FacultyTabNavigator} />
+          <Stack.Screen name="TeacherTabs" component={TeacherTabNavigator} />
         </Stack.Group>
       ) : (
         <Stack.Group screenOptions={{ animationEnabled: false }}>

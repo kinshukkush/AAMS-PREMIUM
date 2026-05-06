@@ -411,25 +411,25 @@ const NAV_CONFIG = {
       ],
     },
   ],
-  faculty: [
+  teacher: [
     {
       section: 'Overview',
       items: [
-        { path: '/faculty/dashboard', icon: LayoutDashboard, label: 'Dashboard', color: '#7C6AFF' },
-        { path: '/faculty/timetable', icon: Calendar, label: 'My Timetable', color: '#06B6D4' },
+        { path: '/teacher/dashboard', icon: LayoutDashboard, label: 'Dashboard', color: '#7C6AFF' },
+        { path: '/teacher/timetable', icon: Calendar, label: 'My Timetable', color: '#06B6D4' },
       ],
     },
     {
       section: 'Attendance',
       items: [
-        { path: '/faculty/mark-attendance', icon: ScanFace, label: 'Mark Attendance', color: '#10B981' },
-        { path: '/faculty/reports', icon: ClipboardList, label: 'Class Reports', color: '#F59E0B' },
+        { path: '/teacher/mark-attendance', icon: ScanFace, label: 'Mark Attendance', color: '#10B981' },
+        { path: '/teacher/reports', icon: ClipboardList, label: 'Class Reports', color: '#F59E0B' },
       ],
     },
     {
       section: 'Analytics',
       items: [
-        { path: '/faculty/analytics', icon: TrendingUp, label: 'Student Analytics', color: '#EC4899' },
+        { path: '/teacher/analytics', icon: TrendingUp, label: 'Student Analytics', color: '#EC4899' },
       ],
     },
   ],
@@ -473,7 +473,7 @@ const NAV_CONFIG = {
 
 const ROLE_CONFIG = {
   admin: { gradient: 'linear-gradient(135deg,#EC4899,#7C6AFF)', glow: 'rgba(236,72,153,0.30)', label: 'Administrator' },
-  faculty: { gradient: 'linear-gradient(135deg,#7C6AFF,#06B6D4)', glow: 'rgba(124,106,255,0.30)', label: 'Faculty' },
+  teacher: { gradient: 'linear-gradient(135deg,#7C6AFF,#06B6D4)', glow: 'rgba(124,106,255,0.30)', label: 'Teacher' },
   student: { gradient: 'linear-gradient(135deg,#06B6D4,#10B981)', glow: 'rgba(6,182,212,0.30)', label: 'Student' },
   parent: { gradient: 'linear-gradient(135deg,#10B981,#06B6D4)', glow: 'rgba(16,185,129,0.30)', label: 'Parent' },
 };

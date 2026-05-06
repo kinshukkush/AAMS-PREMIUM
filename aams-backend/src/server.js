@@ -21,14 +21,15 @@ const {
 } = require('./routes/resources');
 const premiumRoutes = require('./routes/premium');
 const notificationRoutes = require('./routes/notifications');
+const aiRoutes = require('./routes/ai');
 
 // ===== APP INIT =====
 const app = express();
 const server = http.createServer(app);
 
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'http://localhost:3000',
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  process.env.MOBILE_ORIGIN,
   'http://localhost:19006',
   'http://localhost:8081'
 ].filter(Boolean);
@@ -190,6 +191,7 @@ app.use('/api/notifications-legacy', notifRouter);
 app.use('/api/reports', reportRouter);
 app.use('/api/premium', premiumRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

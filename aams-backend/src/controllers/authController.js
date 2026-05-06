@@ -8,16 +8,30 @@ const { asyncHandler } = require('../middleware/errorHandler');
 // @route   POST /api/auth/login
 // @access  Public
 const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { identifier, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email and password are required.' });
+  if (!identifier || !password) {
+    return res.status(400).json({ success: false, message: 'Identifier (email or enrollment ID) and password are required.' });
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+  let user = await User.findOne({
+    $or: [{ email: identifier.toLowerCase() }, { enrollmentId: identifier }]
+  }).select('+password');
+
+  // Auto-registration logic for students who log in for the first time
+  if (!user && password === `${identifier}@` && /^\d+$/.test(identifier)) {
+    user = await User.create({
+      name: "Pending Registration",
+      email: `${identifier}@student.aams.edu`,
+      enrollmentId: identifier,
+      password: password,
+      role: 'student',
+      isDefaultPassword: true
+    });
+  }
 
   if (!user || !(await user.comparePassword(password))) {
-    return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    return res.status(401).json({ success: false, message: 'Invalid credentials.' });
   }
 
   if (!user.isActive) {
@@ -80,11 +94,15 @@ const getMe = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { user } });
 });
 
-// @desc    Update password
-// @route   PUT /api/auth/update-password
+// @desc    Change password
+// @route   POST /api/auth/change-password
 // @access  Private
-const updatePassword = asyncHandler(async (req, res) => {
+const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
+
+  if (!newPassword || newPassword.length < 8 || !/\d/.test(newPassword) || !/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)) {
+    return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long, contain at least 1 number, and 1 special character.' });
+  }
 
   const user = await User.findById(req.user._id).select('+password');
 
@@ -93,9 +111,26 @@ const updatePassword = asyncHandler(async (req, res) => {
   }
 
   user.password = newPassword;
+  user.isDefaultPassword = false;
   await user.save();
 
-  sendTokenResponse(user, 200, res, 'Password updated successfully');
+  res.json({ success: true, message: 'Password changed successfully.' });
+});
+
+// @desc    Complete student profile (update name)
+// @route   POST /api/auth/complete-profile
+// @access  Private
+const completeProfile = asyncHandler(async (req, res) => {
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ success: false, message: 'Name is required' });
+  }
+  
+  const user = await User.findById(req.user._id);
+  user.name = name;
+  await user.save();
+  
+  res.json({ success: true, message: 'Profile updated successfully', data: { user } });
 });
 
 // @desc    Refresh access token
@@ -126,4 +161,4 @@ const logout = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Logged out successfully.' });
 });
 
-module.exports = { login, register, getMe, updatePassword, refreshToken, logout };
+module.exports = { login, register, getMe, changePassword, completeProfile, refreshToken, logout };

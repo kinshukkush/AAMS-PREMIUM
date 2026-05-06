@@ -5,7 +5,7 @@ import './LoginPage.css';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -16,9 +16,9 @@ const LoginPage = () => {
 
   // Demo credentials for easy testing
   const demoAccounts = [
-    { role: 'Admin', email: 'admin@aams.demo', password: 'Admin@123' },
-    { role: 'Faculty', email: 'faculty@aams.demo', password: 'Faculty@123' },
-    { role: 'Student', email: 'student@aams.demo', password: 'Student@123' },
+    { role: 'Admin', identifier: 'admin@aams.demo', password: 'Admin@123' },
+    { role: 'Teacher', identifier: 'faculty@aams.demo', password: 'Faculty@123' },
+    { role: 'Student', identifier: 'student@aams.demo', password: 'Student@123' },
   ];
 
   const handleLogin = async (e) => {
@@ -28,7 +28,7 @@ const LoginPage = () => {
 
     try {
       const response = await axios.post(`${API_URL}/api/auth/login`, {
-        email,
+        identifier,
         password,
       });
 
@@ -39,7 +39,7 @@ const LoginPage = () => {
       localStorage.setItem('aams_user', JSON.stringify(user));
 
       if (rememberMe) {
-        localStorage.setItem('aams_rememberEmail', email);
+        localStorage.setItem('aams_rememberEmail', identifier);
       }
 
       // Redirect to dashboard
@@ -52,8 +52,8 @@ const LoginPage = () => {
     }
   };
 
-  const handleDemoLogin = (demoEmail, demoPassword) => {
-    setEmail(demoEmail);
+  const handleDemoLogin = (demoIdentifier, demoPassword) => {
+    setIdentifier(demoIdentifier);
     setPassword(demoPassword);
   };
 
@@ -86,20 +86,20 @@ const LoginPage = () => {
 
           {error && <div className="error-message">{error}</div>}
 
-          {/* Email Input */}
+          {/* Identifier Input */}
           <div className="form-group">
-            <label htmlFor="email">Email Address</label>
+            <label htmlFor="identifier">Email Address or Enrollment ID</label>
             <div className="input-wrapper">
               <svg className="input-icon" width="20" height="20" viewBox="0 0 24 24">
                 <path fill="currentColor" d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                 <path fill="none" d="M22 6l-10 7L2 6" strokeWidth="2" />
               </svg>
               <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
+                id="identifier"
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Enter your email or enrollment ID"
                 required
                 disabled={loading}
               />
@@ -154,7 +154,7 @@ const LoginPage = () => {
           <button
             type="submit"
             className="login-button"
-            disabled={loading || !email || !password}
+            disabled={loading || !identifier || !password}
           >
             {loading ? (
               <>
@@ -174,10 +174,10 @@ const LoginPage = () => {
           <div className="demo-buttons">
             {demoAccounts.map((account) => (
               <button
-                key={account.email}
+                key={account.identifier}
                 type="button"
                 className="demo-button"
-                onClick={() => handleDemoLogin(account.email, account.password)}
+                onClick={() => handleDemoLogin(account.identifier, account.password)}
                 disabled={loading}
               >
                 <span className="demo-role">{account.role}</span>

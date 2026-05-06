@@ -16,87 +16,147 @@ const { v4: uuidv4 } = require('uuid');
 // @route   POST /api/attendance/sessions/start
 // @access  Faculty
 const startSession = asyncHandler(async (req, res) => {
-  const { courseId, batch, section, method, room, timetableId } = req.body;
+  const now = new Date();
+  const currentDay = now.getDay(); // 0-6
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-  const course = await Course.findById(courseId);
-  if (!course) return res.status(404).json({ success: false, message: 'Course not found.' });
+  // Find all timetable slots for this teacher today
+  const slots = await Timetable.find({
+    teacher: req.user._id,
+    dayOfWeek: currentDay
+  }).populate('course');
 
-  // Generate QR code for QR method
-  let qrCode = null;
-  let qrExpiry = null;
-  const sessionCode = uuidv4();
+  // Filter slots by current time (+/- 10 mins grace)
+  let activeSlot = null;
+  for (const slot of slots) {
+    const [startH, startM] = slot.startTime.split(':').map(Number);
+    const [endH, endM] = slot.endTime.split(':').map(Number);
+    const startTotal = startH * 60 + startM;
+    const endTotal = endH * 60 + endM;
 
-  if (method === 'qr' || method === 'mixed') {
-    const qrData = JSON.stringify({
-      sessionCode,
-      courseId,
-      date: new Date().toISOString().split('T')[0],
-      expiry: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 min
-    });
-    qrCode = await QRCode.toDataURL(qrData);
-    qrExpiry = new Date(Date.now() + 15 * 60 * 1000);
+    if (currentMinutes >= startTotal - 10 && currentMinutes <= endTotal + 10) {
+      activeSlot = slot;
+      break;
+    }
   }
 
+  if (!activeSlot) {
+    return res.status(403).json({ success: false, error: 'No class scheduled at this time.', code: 'ERR_NO_CLASS' });
+  }
+
+  // Create session
   const session = await AttendanceSession.create({
-    sessionCode,
-    course: courseId,
-    faculty: req.user._id,
-    timetable: timetableId || null,
-    department: req.user.department,
-    batch,
-    section,
-    date: new Date(),
-    startTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-    method: method || 'manual',
-    room,
-    qrCode,
-    qrExpiry,
-    status: 'active'
+    timetableSlot: activeSlot._id,
+    course: activeSlot.course._id,
+    teacher: req.user._id,
+    date: now,
+    startedAt: now,
+    isOpen: true
   });
 
-  // Emit real-time event via socket (handled in server.js)
-  req.app.get('io')?.to(`faculty_${req.user._id}`).emit('session_started', {
-    sessionId: session._id,
-    sessionCode: session.sessionCode
-  });
+  // Generate 60s rolling JWT QR
+  const qrExpiresAt = new Date(now.getTime() + 60 * 1000);
+  const jwt = require('jsonwebtoken');
+  const qrToken = jwt.sign(
+    { sessionId: session._id, courseId: activeSlot.course._id },
+    process.env.JWT_QR_SECRET || 'qrsecret',
+    { expiresIn: '60s' }
+  );
 
-  await session.populate('course', 'name code');
+  session.currentQrToken = qrToken;
+  session.qrExpiresAt = qrExpiresAt;
+  await session.save();
+
+  // Populate course to get section and enrolledStudents
+  await activeSlot.populate('course');
 
   res.status(201).json({
     success: true,
-    message: 'Attendance session started.',
+    data: {
+      sessionId: session._id,
+      course: activeSlot.course,
+      section: activeSlot.section,
+      enrolledStudents: activeSlot.course.enrolledStudents || [],
+      qrToken,
+      qrExpiresAt
+    },
+    message: 'Attendance session started.'
+  });
+});
+
+// @desc    Close attendance session
+// @route   POST /api/sessions/:sessionId/close
+// @access  Teacher
+const closeSession = asyncHandler(async (req, res) => {
+  const session = await AttendanceSession.findById(req.params.sessionId);
+  if (!session) return res.status(404).json({ success: false, error: 'Session not found.', code: 'ERR_NOT_FOUND' });
+
+  if (session.teacher.toString() !== req.user._id.toString()) {
+    return res.status(403).json({ success: false, error: 'Not authorized.', code: 'ERR_FORBIDDEN' });
+  }
+
+  session.isOpen = false;
+  session.closedAt = new Date();
+  await session.save();
+
+  res.json({
+    success: true,
+    message: 'Session closed.',
     data: { session }
   });
 });
 
-// @desc    End attendance session
-// @route   PUT /api/attendance/sessions/:sessionId/end
-// @access  Faculty
-const endSession = asyncHandler(async (req, res) => {
-  const session = await AttendanceSession.findById(req.params.sessionId);
-  if (!session) return res.status(404).json({ success: false, message: 'Session not found.' });
+// @desc    Get session students
+// @route   GET /api/sessions/:sessionId/students
+// @access  Teacher
+const getSessionStudents = asyncHandler(async (req, res) => {
+  const session = await AttendanceSession.findById(req.params.sessionId).populate('course');
+  if (!session) return res.status(404).json({ success: false, error: 'Session not found.', code: 'ERR_NOT_FOUND' });
 
-  if (session.faculty.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-    return res.status(403).json({ success: false, message: 'Not authorized.' });
+  if (session.teacher.toString() !== req.user._id.toString()) {
+    return res.status(403).json({ success: false, error: 'Not authorized.', code: 'ERR_FORBIDDEN' });
   }
 
-  const presentCount = await AttendanceRecord.countDocuments({
-    session: session._id,
-    status: 'present'
-  });
-
-  session.status = 'completed';
-  session.endTime = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-  session.presentCount = presentCount;
-  await session.save();
-
-  // Check for low attendance students and send alerts
-  checkAndAlertLowAttendance(session).catch(console.error);
+  // Populate enrolled students
+  await session.course.populate('enrolledStudents');
 
   res.json({
     success: true,
-    message: 'Session ended.',
-    data: { session, presentCount }
+    data: { students: session.course.enrolledStudents }
+  });
+});
+
+// @desc    Refresh QR Token
+// @route   POST /api/sessions/:sessionId/qr/refresh
+// @access  Teacher
+const refreshQrToken = asyncHandler(async (req, res) => {
+  const session = await AttendanceSession.findById(req.params.sessionId);
+  if (!session) return res.status(404).json({ success: false, error: 'Session not found.', code: 'ERR_NOT_FOUND' });
+
+  if (session.teacher.toString() !== req.user._id.toString()) {
+    return res.status(403).json({ success: false, error: 'Not authorized.', code: 'ERR_FORBIDDEN' });
+  }
+  
+  if (!session.isOpen) {
+    return res.status(400).json({ success: false, error: 'Session is closed.', code: 'ERR_SESSION_CLOSED' });
+  }
+
+  const now = new Date();
+  const qrExpiresAt = new Date(now.getTime() + 60 * 1000);
+  const jwt = require('jsonwebtoken');
+  const qrToken = jwt.sign(
+    { sessionId: session._id, courseId: session.course },
+    process.env.JWT_QR_SECRET || 'qrsecret',
+    { expiresIn: '60s' }
+  );
+
+  session.currentQrToken = qrToken;
+  session.qrExpiresAt = qrExpiresAt;
+  await session.save();
+
+  res.json({
+    success: true,
+    data: { qrToken, qrExpiresAt }
   });
 });
 
@@ -231,97 +291,107 @@ const bulkMarkAttendance = asyncHandler(async (req, res) => {
 });
 
 // @desc    Mark attendance via QR scan (student self-mark)
-// @route   POST /api/attendance/qr-scan
+// @route   POST /api/attendance/mark-qr
 // @access  Student
-const qrScan = asyncHandler(async (req, res) => {
-  const { sessionCode } = req.body;
+const markQr = asyncHandler(async (req, res) => {
+  const { qrToken } = req.body;
+  const jwt = require('jsonwebtoken');
 
-  const session = await AttendanceSession.findOne({ sessionCode, status: 'active' }).populate('course');
-  if (!session) return res.status(404).json({ success: false, message: 'Session not found or expired.' });
-
-  // Check QR expiry
-  if (session.qrExpiry && new Date() > session.qrExpiry) {
-    return res.status(400).json({ success: false, message: 'QR code has expired.' });
+  let decoded;
+  try {
+    decoded = jwt.verify(qrToken, process.env.JWT_QR_SECRET || 'qrsecret');
+  } catch (err) {
+    return res.status(400).json({ success: false, error: 'QR expired or invalid.', code: 'ERR_QR_INVALID' });
   }
 
-  // SECURITY FIX: Use upsert with unique compound index to prevent race condition
-  // This is atomic at MongoDB level
-  const record = await AttendanceRecord.findOneAndUpdate(
-    {
-      session: session._id,
-      student: req.user._id
-    },
-    {
-      $setOnInsert: {
-        session: session._id,
-        student: req.user._id,
-        course: session.course._id,
-        faculty: session.faculty,
-        date: session.date,
-        status: 'present',
-        checkInTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-        method: 'qr',
-        markedBy: 'self',
-        ipAddress: req.ip
-      }
-    },
-    {
-      upsert: true,
-      new: true,
-      runValidators: false
-    }
-  );
-
-  // If record already existed (not newly inserted)
-  if (record.method === 'qr' && new Date().getTime() - new Date(record.createdAt).getTime() < 1000) {
-    // Record was just created (within last second)
-  } else if (record.method === 'qr') {
-    // Record already existed
-    return res.status(409).json({ success: false, message: 'Attendance already marked.' });
+  const { sessionId } = decoded;
+  const session = await AttendanceSession.findById(sessionId).populate('course');
+  
+  if (!session || !session.isOpen) {
+    return res.status(400).json({ success: false, error: 'Session is not open.', code: 'ERR_SESSION_CLOSED' });
   }
 
-  req.app.get('io')?.to(`session_${session._id}`).emit('attendance_marked', {
+  if (!session.course.enrolledStudents.includes(req.user._id)) {
+    return res.status(403).json({ success: false, error: 'Not enrolled in this section.', code: 'ERR_NOT_ENROLLED' });
+  }
+
+  const existing = await AttendanceRecord.findOne({ session: sessionId, student: req.user._id });
+  if (existing) {
+    return res.status(409).json({ success: false, error: 'Attendance already marked.', code: 'ERR_ALREADY_MARKED' });
+  }
+
+  const record = await AttendanceRecord.create({
+    session: sessionId,
+    student: req.user._id,
+    course: session.course._id,
+    faculty: session.teacher,
+    date: new Date(),
+    status: 'present',
+    verificationMethod: 'qr',
+    checkInTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+    markedBy: 'self'
+  });
+
+  req.app.get('io')?.to(`teacher_${session.teacher}`).emit('attendance:marked', {
     studentId: req.user._id,
     status: 'present',
-    method: 'qr'
+    verificationMethod: 'qr'
   });
 
   res.status(201).json({
     success: true,
-    message: 'Attendance marked via QR. You are marked present!',
+    message: 'Attendance marked via QR.',
     data: { record }
   });
 });
 
-// @desc    Process face recognition result from AI service
-// @route   POST /api/attendance/face-result
-// @access  System (from AI service, internal)
-const processFaceResult = asyncHandler(async (req, res) => {
-  const { sessionId, studentId, confidence, status = 'present' } = req.body;
+// @desc    Process face recognition result
+// @route   POST /api/attendance/mark-face
+// @access  Student / Teacher
+const markFace = asyncHandler(async (req, res) => {
+  const { sessionId, enrollmentId, confidence } = req.body;
 
-  const session = await AttendanceSession.findById(sessionId).populate('course');
-  if (!session || session.status !== 'active') {
-    return res.status(400).json({ success: false, message: 'No active session.' });
+  if (confidence < 0.6) {
+    return res.status(400).json({ success: false, error: 'Face not recognized.', code: 'ERR_FACE_NOT_RECOGNIZED' });
   }
 
-  const existing = await AttendanceRecord.findOne({ session: sessionId, student: studentId });
-  if (existing) return res.json({ success: true, message: 'Already marked.', data: { record: existing } });
+  const session = await AttendanceSession.findById(sessionId).populate('course');
+  if (!session || !session.isOpen) {
+    return res.status(400).json({ success: false, error: 'Session is not open.', code: 'ERR_SESSION_CLOSED' });
+  }
+
+  const student = await User.findOne({ enrollmentId });
+  if (!student) {
+    return res.status(404).json({ success: false, error: 'Student not found.', code: 'ERR_STUDENT_NOT_FOUND' });
+  }
+
+  if (!session.course.enrolledStudents.includes(student._id)) {
+    return res.status(403).json({ success: false, error: 'Not enrolled in this section.', code: 'ERR_NOT_ENROLLED' });
+  }
+
+  const existing = await AttendanceRecord.findOne({ session: sessionId, student: student._id });
+  if (existing) {
+    return res.status(409).json({ success: false, error: 'Attendance already marked.', code: 'ERR_ALREADY_MARKED' });
+  }
 
   const record = await AttendanceRecord.create({
     session: sessionId,
-    student: studentId,
+    student: student._id,
     course: session.course._id,
-    faculty: session.faculty,
-    date: session.date,
-    status,
-    checkInTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-    method: 'face',
+    faculty: session.teacher,
+    date: new Date(),
+    status: 'present',
+    verificationMethod: 'face',
     confidence,
-    markedBy: 'system'
+    checkInTime: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+    markedBy: req.user.role === 'student' ? 'self' : 'teacher'
   });
 
-  req.app.get('io')?.to(`session_${sessionId}`).emit('attendance_marked', {
-    studentId, status, method: 'face', confidence
+  req.app.get('io')?.to(`teacher_${session.teacher}`).emit('attendance:marked', {
+    studentId: student._id,
+    status: 'present',
+    verificationMethod: 'face',
+    confidence
   });
 
   res.status(201).json({ success: true, data: { record } });
@@ -517,8 +587,8 @@ async function checkAndAlertLowAttendance(session) {
 }
 
 module.exports = {
-  startSession, endSession, getActiveSession, getSessions,
-  markAttendance, bulkMarkAttendance, qrScan, processFaceResult,
+  startSession, closeSession, getSessionStudents, refreshQrToken, getActiveSession, getSessions,
+  markAttendance, bulkMarkAttendance, markQr, markFace,
   getStudentAttendance, getStudentSummary, getSessionRecords,
   getDeptAnalytics, getAtRiskStudents
 };

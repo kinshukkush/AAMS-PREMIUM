@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const {
-  startSession, endSession, getActiveSession, getSessions,
-  markAttendance, bulkMarkAttendance, qrScan, processFaceResult,
+  startSession, closeSession, getSessionStudents, refreshQrToken, getActiveSession, getSessions,
+  markAttendance, bulkMarkAttendance, markQr, markFace,
   getStudentAttendance, getStudentSummary, getSessionRecords,
   getDeptAnalytics, getAtRiskStudents
 } = require('../controllers/attendanceController');
@@ -19,17 +19,19 @@ const {
 router.use(protect);
 
 // ---- Session routes ----
-router.post('/sessions/start', authorize('faculty', 'admin'), startSession);
-router.get('/sessions/active', authorize('faculty', 'admin'), getActiveSession);
-router.get('/sessions', authorize('faculty', 'admin'), validatePagination, getSessions);
-router.put('/sessions/:sessionId/end', authorize('faculty', 'admin'), validateSessionIdParam, endSession);
-router.get('/sessions/:sessionId/records', authorize('faculty', 'admin'), validateSessionIdParam, getSessionRecords);
+router.post('/sessions/start', authorize('teacher', 'admin'), startSession);
+router.get('/sessions/active', authorize('teacher', 'admin'), getActiveSession);
+router.get('/sessions', authorize('teacher', 'admin'), validatePagination, getSessions);
+router.post('/sessions/:sessionId/close', authorize('teacher', 'admin'), validateSessionIdParam, closeSession);
+router.get('/sessions/:sessionId/records', authorize('teacher', 'admin'), validateSessionIdParam, getSessionRecords);
+router.get('/sessions/:sessionId/students', authorize('teacher', 'admin'), validateSessionIdParam, getSessionStudents);
+router.post('/sessions/:sessionId/qr/refresh', authorize('teacher', 'admin'), validateSessionIdParam, refreshQrToken);
 
 // ---- Marking routes ----
-router.post('/mark', authorize('faculty', 'admin'), validateMarkAttendance, markAttendance);
-router.post('/bulk-mark', authorize('faculty', 'admin'), validateMarkAttendance, bulkMarkAttendance);
-router.post('/qr-scan', authorize('student'), validateQRScan, qrScan);
-router.post('/face-result', authorize('faculty', 'admin'), validateFaceResult, processFaceResult);
+router.post('/mark', authorize('teacher', 'admin'), validateMarkAttendance, markAttendance);
+router.post('/bulk-mark', authorize('teacher', 'admin'), validateMarkAttendance, bulkMarkAttendance);
+router.post('/mark-qr', authorize('student'), validateQRScan, markQr);
+router.post('/mark-face', authorize('teacher', 'admin', 'student'), validateFaceResult, markFace);
 
 // ---- Student records ----
 router.get('/student/:studentId', validateStudentIdParam, getStudentAttendance);
@@ -37,6 +39,6 @@ router.get('/student/:studentId/summary', validateStudentIdParam, validatePagina
 
 // ---- Analytics ----
 router.get('/analytics/department', authorize('admin'), getDeptAnalytics);
-router.get('/analytics/at-risk', authorize('admin', 'faculty'), getAtRiskStudents);
+router.get('/analytics/at-risk', authorize('admin', 'teacher'), getAtRiskStudents);
 
 module.exports = router;

@@ -22,12 +22,12 @@ import AdminNotifications from './pages/admin/AdminNotifications';
 import FaceRegistration from './pages/admin/FaceRegistration';
 import FaceDebug from './pages/admin/FaceDebug';
 
-// Faculty Pages
-import FacultyDashboard from './pages/faculty/FacultyDashboard';
+// Teacher Pages
+import TeacherDashboard from './pages/faculty/FacultyDashboard';
 import MarkAttendance from './pages/faculty/MarkAttendance';
 import ClassReports from './pages/faculty/ClassReports';
 import StudentAnalytics from './pages/faculty/StudentAnalytics';
-import FacultyTimetable from './pages/faculty/FacultyTimetable';
+import TeacherTimetable from './pages/faculty/FacultyTimetable';
 
 // Student Pages
 import StudentDashboard from './pages/student/StudentDashboard';
@@ -48,7 +48,8 @@ function ProtectedRoute({ children, allowedRoles }) {
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
-  if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to={`/${user.role}/dashboard`} replace />;
+  const role = user.role === 'faculty' ? 'teacher' : user.role;
+  if (allowedRoles && !allowedRoles.includes(role)) return <Navigate to={`/${role}/dashboard`} replace />;
   return children;
 }
 
@@ -56,7 +57,8 @@ function RoleRedirect() {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  return <Navigate to={`/${user.role}/dashboard`} replace />;
+  const role = user.role === 'faculty' ? 'teacher' : user.role;
+  return <Navigate to={`/${role}/dashboard`} replace />;
 }
 
 function AppRoutes() {
@@ -83,13 +85,13 @@ function AppRoutes() {
                 <Route path="face-debug" element={<AnimatedPage><FaceDebug /></AnimatedPage>} />
               </Route>
 
-              {/* Faculty Routes */}
-              <Route path="/faculty" element={<ProtectedRoute allowedRoles={['faculty']}><DashboardLayout role="faculty" /></ProtectedRoute>}>
-                <Route path="dashboard" element={<AnimatedPage><FacultyDashboard /></AnimatedPage>} />
+              {/* Teacher Routes */}
+              <Route path="/teacher" element={<ProtectedRoute allowedRoles={['teacher']}><DashboardLayout role="teacher" /></ProtectedRoute>}>
+                <Route path="dashboard" element={<AnimatedPage><TeacherDashboard /></AnimatedPage>} />
                 <Route path="mark-attendance" element={<AnimatedPage><MarkAttendance /></AnimatedPage>} />
                 <Route path="reports" element={<AnimatedPage><ClassReports /></AnimatedPage>} />
                 <Route path="analytics" element={<AnimatedPage><StudentAnalytics /></AnimatedPage>} />
-                <Route path="timetable" element={<AnimatedPage><FacultyTimetable /></AnimatedPage>} />
+                <Route path="timetable" element={<AnimatedPage><TeacherTimetable /></AnimatedPage>} />
               </Route>
 
               {/* Student Routes */}

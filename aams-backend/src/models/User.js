@@ -24,7 +24,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'faculty', 'student', 'parent'],
+    enum: ['admin', 'teacher', 'student', 'parent'],
     required: true
   },
   phone: { type: String, trim: true },
@@ -35,6 +35,14 @@ const userSchema = new mongoose.Schema({
     ref: 'Department',
     default: null
   },
+
+  // Added as per Master Prompt
+  enrollmentId: { type: String, unique: true, sparse: true },
+  isDefaultPassword: { type: Boolean, default: true },
+  faceEmbedding: { type: [Number], default: [] },
+  section: { type: String },
+  semester: { type: Number },
+  parentOf: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
   // Student-specific fields
   studentProfile: {
