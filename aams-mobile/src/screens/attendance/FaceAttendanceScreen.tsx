@@ -11,9 +11,9 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
-import { Camera } from 'expo-camera';
+import { Camera, CameraType } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
+import { apiClient } from '../../utils/auth';
 
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -39,20 +39,12 @@ export default function FaceAttendanceScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      const photo = await cameraRef.current.takePictureAsync({
+      const photo = await (cameraRef.current as any).takePictureAsync({
         quality: 0.8,
         base64: true
       });
 
-      const response = await axios.post(
-        `${API_URL}/api/attendance/mark-face`,
-        { imageData: photo.base64 },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('aams_token')}`
-          }
-        }
-      );
+      await apiClient.post('/attendance/mark-face', { imageData: photo.base64 });
 
       Alert.alert('Success', 'Face attendance marked successfully', [
         { text: 'OK', onPress: () => navigation.goBack() }
@@ -83,10 +75,10 @@ export default function FaceAttendanceScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <Camera ref={cameraRef} style={styles.camera} type={Camera.Constants.Type.front} />
+      <Camera ref={cameraRef} style={styles.camera} type={CameraType.front} />
 
       {/* Overlay */}
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, { pointerEvents: 'box-none' } as any]}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -145,8 +137,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'space-between',
-    pointerEvents: 'box-none'
+    justifyContent: 'space-between'
   },
   header: {
     flexDirection: 'row',

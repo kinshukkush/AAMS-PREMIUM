@@ -31,7 +31,9 @@ const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
   process.env.MOBILE_ORIGIN,
   'http://localhost:19006',
-  'http://localhost:8081'
+  'http://localhost:8081',
+  'http://localhost:5173',
+  'http://localhost:3000'
 ].filter(Boolean);
 
 // ===== SOCKET.IO SETUP =====
@@ -231,7 +233,7 @@ app.use(errorHandler);
 
 // ===== START SERVER =====
 const PORT = process.env.PORT || 5000;
-const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
+const HOST = process.env.HOST || '0.0.0.0';
 
 const startServer = async () => {
   await connectDB();

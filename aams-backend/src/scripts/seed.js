@@ -57,10 +57,10 @@ async function seed() {
     });
 
     // 1. Create Admin
-    const adminPassword = await bcrypt.hash("00000001@", 10);
+    const adminPassword = await bcrypt.hash("Admin@123", 10);
     await User.create({
       name: "Admin",
-      email: "admin@aams.edu",
+      email: "admin@aams.demo",
       enrollmentId: "00000001",
       password: adminPassword,
       role: "admin",
@@ -76,10 +76,11 @@ async function seed() {
     const teachers = [];
     let teacherId = 10000001;
     for (const name of teacherNames) {
-      const password = await bcrypt.hash(`${teacherId}@`, 10);
+      const isDemoTeacher = teacherId === 10000001;
+      const password = await bcrypt.hash(isDemoTeacher ? "Faculty@123" : `${teacherId}@`, 10);
       const teacher = await User.create({
         name: `Dr. ${name}`,
-        email: `dr.${name.toLowerCase()}@aams.edu`,
+        email: isDemoTeacher ? "faculty@aams.demo" : `dr.${name.toLowerCase()}@aams.edu`,
         enrollmentId: teacherId.toString(),
         password: password,
         role: "teacher",
@@ -94,7 +95,8 @@ async function seed() {
     const students = [];
     let studentId = 12223601;
     for (let i = 0; i < 100; i++) {
-      const password = await bcrypt.hash(`${studentId}@`, 10);
+      const isDemoStudent = i === 0;
+      const password = await bcrypt.hash(isDemoStudent ? "Student@123" : `${studentId}@`, 10);
       const name = indianNames[i];
       const firstName = name.split(' ')[0].toLowerCase();
       const section = i < 50 ? "CSE-A" : "CSE-B";
@@ -102,7 +104,7 @@ async function seed() {
       
       const student = await User.create({
         name: name,
-        email: `${firstName}.${studentId}@student.aams.edu`,
+        email: isDemoStudent ? "student@aams.demo" : `${firstName}.${studentId}@student.aams.edu`,
         enrollmentId: studentId.toString(),
         password: password,
         role: "student",

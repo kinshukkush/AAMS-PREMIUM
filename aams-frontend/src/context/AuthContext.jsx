@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const AuthContext = createContext();
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api';
 
 // Axios instance shared across app
 export const apiClient = axios.create({
@@ -87,19 +87,26 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (identifier, password) => {
     setLoading(true);
     try {
-      const res = await apiClient.post('/auth/login', { email, password });
-      const { accessToken, refreshToken, user: userData } = res.data;
+      const res = await apiClient.post('/auth/login', { identifier, password });
+      // Backend returns { success, token, user } (flat) or { success, data: { token, user } }
+      const token = res.token || res.data?.token;
+      const userData = res.user || res.data?.user;
+      const refresh = res.refreshToken || res.data?.refreshToken;
 
-      localStorage.setItem('aams_token', accessToken);
-      localStorage.setItem('aams_refresh', refreshToken);
+      if (!token || !userData) throw new Error('Invalid server response');
+
+      localStorage.setItem('aams_token', token);
+      if (refresh) localStorage.setItem('aams_refresh', refresh);
       localStorage.setItem('aams_user', JSON.stringify(userData));
 
       setUser(userData);
       setLoading(false);
-      return { success: true, role: userData.role };
+      // Normalize faculty -> teacher for routing
+      const role = userData.role === 'faculty' ? 'teacher' : userData.role;
+      return { success: true, role };
     } catch (err) {
       setLoading(false);
       return { success: false, error: err.message || 'Invalid credentials' };

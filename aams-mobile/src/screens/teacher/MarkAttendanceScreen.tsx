@@ -14,12 +14,10 @@ import {
   RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
+import { apiClient } from '../../utils/auth';
 
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
 
 interface Student {
   _id: string;
@@ -43,16 +41,11 @@ export default function MarkAttendanceScreen() {
 
   const fetchStudents = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/users/students`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('aams_token')}`
-        }
-      });
-      setStudents(response.data.students || []);
+      const response = await apiClient.get('/users/students');
+      const studentList = response.data?.data?.users || [];
+      setStudents(studentList);
       const initialAttendance: Record<string, string> = {};
-      response.data.students.forEach((s: Student) => {
-        initialAttendance[s._id] = '';
-      });
+      studentList.forEach((s: Student) => { initialAttendance[s._id] = ''; });
       setAttendance(initialAttendance);
     } catch (error) {
       console.warn('Error fetching students:', error);
@@ -75,23 +68,11 @@ export default function MarkAttendanceScreen() {
 
   const handleSubmit = async () => {
     try {
-      await axios.post(
-        `${API_URL}/api/attendance/bulk-mark`,
-        {
-          attendance: Object.entries(attendance)
-            .filter(([_, status]) => status)
-            .map(([studentId, status]) => ({
-              studentId,
-              status
-            }))
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('aams_token')}`
-          }
-        }
-      );
-
+      await apiClient.post('/attendance/bulk-mark', {
+        attendance: Object.entries(attendance)
+          .filter(([_, status]) => status)
+          .map(([studentId, status]) => ({ studentId, status }))
+      });
       alert('Attendance marked successfully');
       setAttendance({});
     } catch (error) {

@@ -7,7 +7,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
+const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:5000').replace(/\/$/, '');
 
 interface User {
   id: string;
@@ -88,7 +88,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password
       });
 
-      const { token: newToken, user: userData } = response.data.data;
+      // Backend returns flat: { success, token, user, refreshToken }
+      const respData = response.data;
+      const newToken = respData.token || respData.data?.token;
+      const userData = respData.user || respData.data?.user;
+
+      if (!newToken || !userData) {
+        throw new Error('Invalid response from server');
+      }
 
       // Save to AsyncStorage
       await AsyncStorage.setItem('aams_token', newToken);
@@ -98,10 +105,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(newToken);
       setUser(userData);
 
-      // Set axios header
+      // Set axios default header
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Login failed';
+      const message =
+        err.response?.data?.message ||
+        err.message ||
+        'Login failed. Check your credentials.';
       setError(message);
       throw new Error(message);
     } finally {

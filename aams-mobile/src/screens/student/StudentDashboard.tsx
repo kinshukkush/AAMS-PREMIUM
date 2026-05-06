@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -46,20 +47,26 @@ export default function StudentDashboard({ navigation }: any) {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/attendance`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('aams_token')}`
-        }
+      const token = await AsyncStorage.getItem('aams_token');
+      const storedUser = await AsyncStorage.getItem('aams_user');
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+      if (!parsedUser?._id && !parsedUser?.id) throw new Error('No user id');
+      const userId = parsedUser._id || parsedUser.id;
+
+      const response = await axios.get(`${API_URL}/api/attendance/student/${userId}/summary`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
-      const attendance = response.data.attendance || [];
-      const present = attendance.filter((a: any) => a.status === 'present').length;
-      const absent = attendance.filter((a: any) => a.status === 'absent').length;
-      const late = attendance.filter((a: any) => a.status === 'late').length;
-      const percentage =
-        attendance.length > 0 ? ((present + late) / attendance.length) * 100 : 0;
+      const summary = response.data?.data?.summary || [];
+      const overall = response.data?.data?.overall || 0;
+      let present = 0, absent = 0, late = 0;
+      summary.forEach((s: any) => {
+        present += s.present || 0;
+        absent += s.absent || 0;
+        late += s.late || 0;
+      });
 
-      setStats({ present, absent, late, percentage: Math.round(percentage) });
+      setStats({ present, absent, late, percentage: Math.round(overall) });
     } catch (error) {
       console.warn('Error fetching dashboard data:', error);
     } finally {
@@ -95,7 +102,7 @@ export default function StudentDashboard({ navigation }: any) {
     {
       title: 'Attendance',
       value: `${stats.percentage}%`,
-      icon: 'chart-bar',
+      icon: 'bar-chart',
       color: '#3b82f6'
     }
   ];
@@ -107,7 +114,7 @@ export default function StudentDashboard({ navigation }: any) {
       onPress: () => navigation.navigate('QRScanner')
     },
     {
-      icon: 'face',
+      icon: 'scan-circle',
       label: 'Face Attendance',
       onPress: () => navigation.navigate('Attendance')
     },
@@ -156,7 +163,7 @@ export default function StudentDashboard({ navigation }: any) {
             ]}
           >
             <View style={[styles.statIcon, { backgroundColor: stat.color + '20' }]}>
-              <Ionicons name={stat.icon} size={24} color={stat.color} />
+              <Ionicons name={stat.icon as any} size={24} color={stat.color} />
             </View>
             <Text style={[styles.statValue, { color: colors.text }]}>
               {stat.value}
@@ -184,7 +191,7 @@ export default function StudentDashboard({ navigation }: any) {
               ]}
               onPress={action.onPress}
             >
-              <Ionicons name={action.icon} size={32} color={colors.primary} />
+              <Ionicons name={action.icon as any} size={32} color={colors.primary} />
               <Text style={[styles.actionLabel, { color: colors.text }]}>
                 {action.label}
               </Text>

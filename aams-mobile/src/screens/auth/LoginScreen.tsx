@@ -65,8 +65,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
   const handleBiometricLogin = async () => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Authenticate to login to AAMS',
         disableDeviceFallback: false,
-        reason: 'Authenticate to login to AAMS'
       });
 
       if (result.success) {
@@ -85,169 +85,169 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={[styles.badgeInfo, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
-            <Ionicons name="flash" size={14} color={colors.primary} />
-            <Text style={[styles.badgeText, { color: colors.primary }]}>Secure access</Text>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={[styles.badgeInfo, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
+              <Ionicons name="flash" size={14} color={colors.primary} />
+              <Text style={[styles.badgeText, { color: colors.primary }]}>Secure access</Text>
+            </View>
+            <Text style={[styles.title, { color: colors.text }]}>Welcome back 👋</Text>
+            <Text style={[styles.subtitle, { color: colors.text2 }]}>
+              Sign in to continue to your premium AAMS workspace.
+            </Text>
           </View>
-          <Text style={[styles.title, { color: colors.text }]}>Welcome back 👋</Text>
-          <Text style={[styles.subtitle, { color: colors.text2 }]}>
-            Sign in to continue to your premium AAMS workspace.
-          </Text>
-        </View>
 
-        {/* Error message */}
-        {error ? (
-          <View style={[styles.errorBox, { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}>
-            <Text style={{ color: '#dc2626' }}>{error}</Text>
-            <TouchableOpacity onPress={clearError}>
-              <Ionicons name="close" size={20} color="#dc2626" />
-            </TouchableOpacity>
-          </View>
-        ) : null}
+          {/* Error message */}
+          {error ? (
+            <View style={[styles.errorBox, { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}>
+              <Text style={{ color: '#dc2626' }}>{error}</Text>
+              <TouchableOpacity onPress={clearError}>
+                <Ionicons name="close" size={20} color="#dc2626" />
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
-        {/* Form */}
-        <View style={styles.form}>
-          {/* Demo Accounts */}
-          <View style={[styles.demoContainer, { backgroundColor: colors.bg2, borderColor: colors.border }]}>
-            <Text style={[styles.demoTitle, { color: colors.text2 }]}>DEMO ACCOUNTS</Text>
-            
-            {( [
-              { role: 'Admin', identifier: 'admin@aams.demo', pass: 'Admin@123', color: '#8B5CF6' },
-              { role: 'Teacher', identifier: 'faculty@aams.demo', pass: 'Faculty@123', color: '#10B981' },
-              { role: 'Student', identifier: 'student@aams.demo', pass: 'Student@123', color: '#F59E0B' }
-            ] ).map((account) => (
-              <TouchableOpacity
-                key={account.role}
-                style={[styles.demoCard, { backgroundColor: colors.bg, borderColor: colors.border }]}
-                onPress={async () => {
-                  setIdentifier(account.identifier);
-                  setPassword(account.pass);
-                  try {
-                    await login(account.identifier, account.pass);
-                  } catch (e) {
-                    Alert.alert('Login Failed', e instanceof Error ? e.message : 'Unknown error');
-                  }
-                }}
-                disabled={loading}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={[styles.demoDot, { backgroundColor: account.color, shadowColor: account.color }]} />
-                  <View>
-                    <Text style={[styles.demoRole, { color: colors.text }]}>{account.role}</Text>
-                    <Text style={[styles.demoEmail, { color: colors.text2 }]}>{account.identifier}</Text>
+          {/* Form */}
+          <View style={styles.form}>
+            {/* Demo Accounts */}
+            <View style={[styles.demoContainer, { backgroundColor: colors.bg2, borderColor: colors.border }]}>
+              <Text style={[styles.demoTitle, { color: colors.text2 }]}>DEMO ACCOUNTS</Text>
+
+              {([
+                { role: 'Admin', identifier: 'admin@aams.demo', pass: 'Admin@123', color: '#8B5CF6' },
+                { role: 'Teacher', identifier: 'faculty@aams.demo', pass: 'Faculty@123', color: '#10B981' },
+                { role: 'Student', identifier: 'student@aams.demo', pass: 'Student@123', color: '#F59E0B' }
+              ]).map((account) => (
+                <TouchableOpacity
+                  key={account.role}
+                  style={[styles.demoCard, { backgroundColor: colors.bg, borderColor: colors.border }]}
+                  onPress={async () => {
+                    setIdentifier(account.identifier);
+                    setPassword(account.pass);
+                    try {
+                      await login(account.identifier, account.pass);
+                    } catch (e) {
+                      Alert.alert('Login Failed', e instanceof Error ? e.message : 'Unknown error');
+                    }
+                  }}
+                  disabled={loading}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={[styles.demoDot, { backgroundColor: account.color }]} />
+                    <View>
+                      <Text style={[styles.demoRole, { color: colors.text }]}>{account.role}</Text>
+                      <Text style={[styles.demoEmail, { color: colors.text2 }]}>{account.identifier}</Text>
+                    </View>
                   </View>
-                </View>
-                <Ionicons name="arrow-forward" size={16} color={colors.text2} />
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Identifier Input */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Email Address or Enrollment ID</Text>
-            <View
-              style={[
-                styles.inputContainer,
-                {
-                  backgroundColor: colors.bg2,
-                  borderColor: colors.border
-                }
-              ]}
-            >
-              <Ionicons name="mail" size={20} color={colors.text2} />
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder=""
-                placeholderTextColor={colors.text2}
-                value={identifier}
-                onChangeText={setIdentifier}
-                editable={!loading}
-              />
+                  <Ionicons name="arrow-forward" size={16} color={colors.text2} />
+                </TouchableOpacity>
+              ))}
             </View>
-          </View>
 
-          {/* Password Input */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: colors.text }]}>Password</Text>
-            <View
-              style={[
-                styles.inputContainer,
-                {
-                  backgroundColor: colors.bg2,
-                  borderColor: colors.border
-                }
-              ]}
-            >
-              <Ionicons name="lock-closed" size={20} color={colors.text2} />
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder=""
-                placeholderTextColor={colors.text2}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                editable={!loading}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons
-                  name={showPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color={colors.text2}
+            {/* Identifier Input */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.text }]}>Email Address or Enrollment ID</Text>
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.bg2,
+                    borderColor: colors.border
+                  }
+                ]}
+              >
+                <Ionicons name="mail" size={20} color={colors.text2} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder=""
+                  placeholderTextColor={colors.text2}
+                  value={identifier}
+                  onChangeText={setIdentifier}
+                  editable={!loading}
                 />
-              </TouchableOpacity>
+              </View>
             </View>
-          </View>
 
-          {/* Forgot password text (static for UI) */}
-          <View style={{ alignItems: 'flex-end', marginBottom: 20, marginTop: -8 }}>
-            <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 13 }}>Forgot password?</Text>
-          </View>
+            {/* Password Input */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.text }]}>Password</Text>
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.bg2,
+                    borderColor: colors.border
+                  }
+                ]}
+              >
+                <Ionicons name="lock-closed" size={20} color={colors.text2} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder=""
+                  placeholderTextColor={colors.text2}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  editable={!loading}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <Ionicons
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={20}
+                    color={colors.text2}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-          {/* Login Button */}
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.primary }]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
+            {/* Forgot password text (static for UI) */}
+            <View style={{ alignItems: 'flex-end', marginBottom: 20, marginTop: -8 }}>
+              <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 13 }}>Forgot password?</Text>
+            </View>
 
-          {/* Biometric Login */}
-          {biometricAvailable && (
+            {/* Login Button */}
             <TouchableOpacity
-              style={[
-                styles.biometricButton,
-                {
-                  backgroundColor: colors.bg2,
-                  borderColor: colors.border
-                }
-              ]}
-              onPress={handleBiometricLogin}
+              style={[styles.button, { backgroundColor: colors.primary }]}
+              onPress={handleLogin}
               disabled={loading}
             >
-              <Ionicons name="finger-print" size={24} color={colors.primary} />
-              <Text style={[styles.biometricText, { color: colors.text }]}>
-                Login with Biometric
-              </Text>
+              {loading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
             </TouchableOpacity>
-          )}
-        </View>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: colors.text2 }]}>
-            By continuing, you agree to AAMS{' '}
-            <Text style={{ color: colors.primary }}>Terms of Service</Text>
-            {' '}and{' '}
-            <Text style={{ color: colors.primary }}>Privacy Policy</Text>
-          </Text>
-        </View>
+            {/* Biometric Login */}
+            {biometricAvailable && (
+              <TouchableOpacity
+                style={[
+                  styles.biometricButton,
+                  {
+                    backgroundColor: colors.bg2,
+                    borderColor: colors.border
+                  }
+                ]}
+                onPress={handleBiometricLogin}
+                disabled={loading}
+              >
+                <Ionicons name="finger-print" size={24} color={colors.primary} />
+                <Text style={[styles.biometricText, { color: colors.text }]}>
+                  Login with Biometric
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: colors.text2 }]}>
+              By continuing, you agree to AAMS{' '}
+              <Text style={{ color: colors.primary }}>Terms of Service</Text>
+              {' '}and{' '}
+              <Text style={{ color: colors.primary }}>Privacy Policy</Text>
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -327,9 +327,6 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
     elevation: 3
   },
   demoRole: {

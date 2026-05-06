@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -41,12 +42,17 @@ export default function StudentAttendance() {
 
   const fetchAttendance = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/attendance`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('aams_token')}`
-        }
-      });
-      setAttendance(response.data.attendance || []);
+      const token = await AsyncStorage.getItem('aams_token');
+      const storedUser = await AsyncStorage.getItem('aams_user');
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+      const userId = parsedUser?._id || parsedUser?.id;
+      if (!userId) throw new Error('No user id');
+
+      const response = await axios.get(
+        `${API_URL}/api/attendance/student/${userId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setAttendance(response.data?.data?.records || []);
     } catch (error) {
       console.warn('Error fetching attendance:', error);
     } finally {

@@ -41,7 +41,7 @@ function AuthNavigator() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        animationEnabled: true
+        animation: 'default'
       }}
     >
       <Stack.Screen name="Login" component={LoginScreen} />
@@ -71,7 +71,7 @@ function StudentTabNavigator() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.text2,
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName = 'home';
+          let iconName: any = 'home';
 
           if (route.name === 'Dashboard') {
             iconName = focused ? 'home' : 'home-outline';
@@ -132,7 +132,7 @@ function TeacherTabNavigator() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.text2,
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName = 'home';
+          let iconName: any = 'home';
 
           if (route.name === 'Dashboard') {
             iconName = focused ? 'home' : 'home-outline';
@@ -174,15 +174,15 @@ export default function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {!user ? (
-        <Stack.Group screenOptions={{ animationEnabled: false }}>
+        <Stack.Group screenOptions={{ animation: 'none' }}>
           <Stack.Screen name="Auth" component={AuthNavigator} />
         </Stack.Group>
-      ) : user.role === 'teacher' || user.role === 'faculty' || user.role === 'admin' ? (
-        <Stack.Group screenOptions={{ animationEnabled: false }}>
+      ) : user.role === 'teacher' || (user.role as string) === 'faculty' || user.role === 'admin' ? (
+        <Stack.Group screenOptions={{ animation: 'none' }}>
           <Stack.Screen name="TeacherTabs" component={TeacherTabNavigator} />
         </Stack.Group>
       ) : (
-        <Stack.Group screenOptions={{ animationEnabled: false }}>
+        <Stack.Group screenOptions={{ animation: 'none' }}>
           <Stack.Screen name="StudentTabs" component={StudentTabNavigator} />
         </Stack.Group>
       )}

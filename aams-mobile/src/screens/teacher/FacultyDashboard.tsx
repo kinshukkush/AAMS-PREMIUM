@@ -13,12 +13,10 @@ import {
   RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
+import { apiClient } from '../../utils/auth';
 
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
 
 interface Session {
   _id: string;
@@ -47,13 +45,10 @@ export default function FacultyDashboard({ navigation }: any) {
 
   const fetchData = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/sessions`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('aams_token')}`
-        }
-      });
-      setSessions(response.data.sessions || []);
-      setStats(response.data.stats || {});
+      const response = await apiClient.get('/attendance/sessions?limit=10');
+      const data = response.data?.data || {};
+      setSessions(data.sessions || []);
+      setStats(data.stats || { totalClasses: 0, totalStudents: 0, avgAttendance: 0 });
     } catch (error) {
       console.warn('Error fetching data:', error);
     } finally {
