@@ -169,11 +169,7 @@ function FacultyTabNavigator() {
  * Root Navigator - Handles auth state
  */
 export default function RootNavigator() {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return null;
-  }
+  const { user } = useAuth();
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>

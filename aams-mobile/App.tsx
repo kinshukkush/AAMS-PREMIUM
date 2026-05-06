@@ -23,7 +23,7 @@ SplashScreen.preventAutoHideAsync();
  */
 function AppContainer() {
   const { theme } = useTheme();
-  const { user, loading } = useAuth();
+  const { initializing } = useAuth();
   const { isAppReady, setAppReady } = useAppStore();
   const [navigationReady, setNavigationReady] = useState(false);
 
@@ -37,7 +37,7 @@ function AppContainer() {
     return () => clearTimeout(timer);
   }, [setAppReady]);
 
-  if (!isAppReady || loading) {
+  if (!isAppReady || initializing) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f1629' }}>
         <ActivityIndicator size="large" color="#00d4ff" />

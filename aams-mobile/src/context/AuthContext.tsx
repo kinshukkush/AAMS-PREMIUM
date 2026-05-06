@@ -23,6 +23,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
+  initializing: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -35,7 +36,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,17 +49,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const savedToken = await AsyncStorage.getItem('aams_token');
       const savedUser = await AsyncStorage.getItem('aams_user');
 
-      if (savedToken && savedUser) {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-
-        // Verify token with backend
-        verifyToken(savedToken);
+      if (savedToken && savedUser && savedUser !== 'undefined') {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          setToken(savedToken);
+          setUser(parsedUser);
+          verifyToken(savedToken);
+        } catch (parseError) {
+          console.warn('Failed to parse user data, clearing auth.', parseError);
+          await AsyncStorage.multiRemove(['aams_token', 'aams_user']);
+        }
+      } else if (savedUser === 'undefined') {
+        await AsyncStorage.multiRemove(['aams_token', 'aams_user']);
       }
     } catch (error) {
       console.warn('Auth initialization error:', error);
     } finally {
-      setLoading(false);
+      setInitializing(false);
     }
   };
 
@@ -154,6 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     token,
     loading,
+    initializing,
     error,
     login,
     logout,

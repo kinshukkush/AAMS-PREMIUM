@@ -693,11 +693,8 @@ function OrbitRings() {
 }
 
 export default function LoginPage() {
-  const [tab, setTab] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [selectedRole, setSelectedRole] = useState('student');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [fieldError, setFieldError] = useState({});
@@ -719,7 +716,6 @@ export default function LoginPage() {
 
   const validate = () => {
     const errors = {};
-    if (tab === 'register' && !name.trim()) errors.name = 'Full name is required';
     if (!email.trim()) errors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(email)) errors.email = 'Please enter a valid email';
     if (!password) errors.password = 'Password is required';
@@ -760,12 +756,19 @@ export default function LoginPage() {
     setForgotSent(true);
   };
 
-  const fillDemo = (account) => {
+  const fillDemo = async (account) => {
     setEmail(account.email);
     setPassword(account.password);
     setError('');
     setFieldError({});
-    setTab('login');
+
+    const result = await login(account.email, account.password);
+    if (result.success) {
+      navigate(`/${result.role}/dashboard`);
+    } else {
+      setError(result.error || 'Invalid email or password');
+      triggerShake();
+    }
   };
 
   return (
@@ -774,375 +777,30 @@ export default function LoginPage() {
       style={{
         minHeight: '100vh',
         display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         overflow: 'hidden',
         position: 'relative',
         background:
-          'radial-gradient(circle at top left, rgba(124,106,255,0.10), transparent 35%), radial-gradient(circle at bottom right, rgba(6,182,212,0.08), transparent 35%), var(--bg-base)',
+          'radial-gradient(circle at 50% 50%, rgba(124,106,255,0.15), transparent 60%), radial-gradient(circle at 80% 20%, rgba(6,182,212,0.12), transparent 40%), var(--bg-base)',
       }}
     >
       <FloatingParticles />
       <OrbitRings />
 
-      {/* Left Brand Panel */}
+      {/* Center Form Panel */}
       <motion.section
-        initial={{ x: -70, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.65, ease: [0.4, 0, 0.2, 1] }}
-        className="login-left-panel"
+        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.7, delay: 0.1, ease: [0.2, 0.8, 0.2, 1] }}
+        className="login-centered-panel"
         style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          padding: '56px 58px',
-          position: 'relative',
-          overflow: 'hidden',
-          borderRight: '1px solid var(--border-subtle)',
-          zIndex: 1,
-        }}
-      >
-        {/* Decorative orbs */}
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <div
-            className="orb orb-purple"
-            style={{ top: '-12%', left: '-10%', width: 420, height: 420 }}
-          />
-          <div
-            className="orb orb-cyan"
-            style={{ bottom: '-12%', right: '-12%', width: 360, height: 360 }}
-          />
-          <div
-            className="orb orb-pink"
-            style={{ top: '35%', right: '15%', width: 180, height: 180 }}
-          />
-        </div>
-
-        {/* Logo */}
-        <motion.div
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
-          style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 52, position: 'relative', zIndex: 2 }}
-        >
-          <motion.div
-            className="glow-pulse"
-            whileHover={{ scale: 1.06, rotate: 6 }}
-            style={{
-              width: 58,
-              height: 58,
-              borderRadius: 18,
-              background: 'linear-gradient(135deg,#7C6AFF,#06B6D4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 10px 30px rgba(124,106,255,0.35)',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.25), transparent 60%)',
-              }}
-            />
-            <GraduationCap size={28} color="white" />
-          </motion.div>
-
-          <div>
-            <div
-              className="gradient-text"
-              style={{
-                fontSize: '2rem',
-                fontWeight: 800,
-                fontFamily: 'var(--font-display)',
-                lineHeight: 1,
-                letterSpacing: '-0.03em',
-              }}
-            >
-              AAMS
-            </div>
-            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: 4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Premium AI Attendance Platform
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Headline */}
-        <motion.div
-          variants={fadeUp}
-          custom={1}
-          initial="hidden"
-          animate="visible"
-          style={{ position: 'relative', zIndex: 2 }}
-        >
-          <div
-            className="badge badge-info"
-            style={{
-              marginBottom: 20,
-              padding: '6px 12px',
-              borderRadius: '999px',
-              background: 'rgba(124,106,255,0.10)',
-              border: '1px solid rgba(124,106,255,0.20)',
-              width: 'fit-content',
-            }}
-          >
-            <Sparkles size={13} />
-            AI-Powered Campus Intelligence
-          </div>
-
-          <h1
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '3.1rem',
-              fontWeight: 800,
-              lineHeight: 1.06,
-              marginBottom: 18,
-              color: 'var(--text-primary)',
-              letterSpacing: '-0.04em',
-              maxWidth: 620,
-            }}
-          >
-            Reimagine attendance with
-            <br />
-            <span className="gradient-text text-glow">premium AI workflows</span>
-          </h1>
-
-          <p
-            style={{
-              color: 'var(--text-secondary)',
-              fontSize: '1rem',
-              lineHeight: 1.85,
-              maxWidth: 520,
-              marginBottom: 34,
-            }}
-          >
-            Face recognition, QR attendance, real-time analytics, smart alerts, and premium dashboards —
-            all in one smooth, modern system built for institutions that move fast.
-          </p>
-        </motion.div>
-
-        {/* Feature pills */}
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          animate="visible"
-          style={{
-            display: 'grid',
-            gap: 14,
-            marginBottom: 36,
-            maxWidth: 540,
-            position: 'relative',
-            zIndex: 2,
-          }}
-        >
-          {FEATURES.map((feature, index) => (
-            <motion.div
-              key={feature.label}
-              variants={slideRight}
-              custom={index}
-              whileHover={{ x: 4, scale: 1.01 }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                padding: '14px 16px',
-                borderRadius: '18px',
-                background: 'rgba(13,13,26,0.62)',
-                border: '1px solid var(--border-default)',
-                backdropFilter: 'blur(18px)',
-                boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
-              }}
-            >
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 12,
-                  background: `${feature.color}18`,
-                  border: `1px solid ${feature.color}40`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  boxShadow: `0 0 16px ${feature.color}22`,
-                }}
-              >
-                <feature.icon size={18} color={feature.color} />
-              </div>
-
-              <div style={{ flex: 1 }}>
-                <div style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 600 }}>
-                  {feature.label}
-                </div>
-              </div>
-
-              <CheckCircle2 size={16} color="#10B981" style={{ flexShrink: 0 }} />
-            </motion.div>
-          ))}
-        </motion.div>
-
-        {/* Stats */}
-        <motion.div
-          variants={fadeUp}
-          custom={2}
-          initial="hidden"
-          animate="visible"
-          style={{
-            display: 'flex',
-            gap: 18,
-            flexWrap: 'wrap',
-            marginBottom: 34,
-            position: 'relative',
-            zIndex: 2,
-          }}
-        >
-          {[
-            ['12K+', 'Students'],
-            ['850+', 'Faculty'],
-            ['99.2%', 'Accuracy'],
-          ].map(([value, label]) => (
-            <div
-              key={label}
-              style={{
-                minWidth: 132,
-                padding: '14px 16px',
-                borderRadius: '18px',
-                background: 'rgba(13,13,26,0.62)',
-                border: '1px solid var(--border-subtle)',
-                backdropFilter: 'blur(16px)',
-              }}
-            >
-              <div
-                className="gradient-text"
-                style={{
-                  fontSize: '1.45rem',
-                  fontWeight: 800,
-                  fontFamily: 'var(--font-display)',
-                  lineHeight: 1,
-                  marginBottom: 6,
-                }}
-              >
-                {value}
-              </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                {label}
-              </div>
-            </div>
-          ))}
-        </motion.div>
-
-        {/* Testimonial */}
-        <motion.div
-          variants={fadeUp}
-          custom={3}
-          initial="hidden"
-          animate="visible"
-          style={{
-            position: 'relative',
-            zIndex: 2,
-            maxWidth: 560,
-            padding: '22px 22px 18px',
-            borderRadius: '22px',
-            background: 'rgba(13,13,26,0.62)',
-            border: '1px solid var(--border-default)',
-            backdropFilter: 'blur(18px)',
-            boxShadow: '0 10px 34px rgba(0,0,0,0.18)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <Stars size={15} style={{ color: 'var(--accent-primary)' }} />
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              What users say
-            </span>
-          </div>
-
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={testimonialIndex}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.35 }}
-            >
-              <p
-                style={{
-                  color: 'var(--text-secondary)',
-                  fontStyle: 'italic',
-                  fontSize: '0.92rem',
-                  lineHeight: 1.8,
-                  marginBottom: 14,
-                }}
-              >
-                “{TESTIMONIALS[testimonialIndex].quote}”
-              </p>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: '50%',
-                    background: 'var(--gradient-brand)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    boxShadow: 'var(--glow-accent)',
-                  }}
-                >
-                  {TESTIMONIALS[testimonialIndex].author[0]}
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {TESTIMONIALS[testimonialIndex].author}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    {TESTIMONIALS[testimonialIndex].role}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-
-          <div style={{ display: 'flex', gap: 7, marginTop: 14 }}>
-            {TESTIMONIALS.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setTestimonialIndex(index)}
-                aria-label={`Show testimonial ${index + 1}`}
-                style={{
-                  width: index === testimonialIndex ? 22 : 7,
-                  height: 7,
-                  borderRadius: 999,
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: index === testimonialIndex ? 'var(--gradient-brand)' : 'rgba(255,255,255,0.12)',
-                  transition: 'all 0.25s ease',
-                  boxShadow: index === testimonialIndex ? 'var(--glow-accent)' : 'none',
-                }}
-              />
-            ))}
-          </div>
-        </motion.div>
-      </motion.section>
-
-      {/* Right Form Panel */}
-      <motion.section
-        initial={{ opacity: 0, y: 26 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.12, ease: [0.4, 0, 0.2, 1] }}
-        className="login-right-panel"
-        style={{
-          width: 500,
+          width: '100%',
+          maxWidth: 480,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '36px 44px',
+          padding: '24px',
           flexShrink: 0,
           position: 'relative',
           zIndex: 2,
@@ -1151,16 +809,15 @@ export default function LoginPage() {
         <motion.div
           initial={{ scale: 0.98, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.45, delay: 0.2 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
           style={{
             width: '100%',
-            maxWidth: 390,
-            padding: '26px 24px',
+            padding: '36px 32px',
             borderRadius: '28px',
             background: 'rgba(13,13,26,0.78)',
             border: '1px solid var(--border-default)',
             backdropFilter: 'blur(24px)',
-            boxShadow: '0 18px 60px rgba(0,0,0,0.45), 0 0 30px rgba(124,106,255,0.08)',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.5), 0 0 40px rgba(124,106,255,0.12)',
             position: 'relative',
             overflow: 'hidden',
           }}
@@ -1174,62 +831,6 @@ export default function LoginPage() {
               background: 'var(--gradient-brand)',
             }}
           />
-
-          {/* Tab Switcher */}
-          <div
-            style={{
-              display: 'flex',
-              background: 'rgba(255,255,255,0.03)',
-              borderRadius: '16px',
-              padding: 4,
-              marginBottom: 26,
-              border: '1px solid var(--border-default)',
-            }}
-          >
-            {['login', 'register'].map((item) => (
-              <button
-                key={item}
-                onClick={() => {
-                  setTab(item);
-                  setError('');
-                  setFieldError({});
-                  setForgotOpen(false);
-                  setForgotSent(false);
-                }}
-                style={{
-                  flex: 1,
-                  padding: '10px 0',
-                  border: 'none',
-                  cursor: 'pointer',
-                  borderRadius: 12,
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  background: 'transparent',
-                  color: tab === item ? 'var(--text-primary)' : 'var(--text-muted)',
-                  position: 'relative',
-                  transition: 'color 0.2s ease',
-                }}
-              >
-                {item === 'login' ? 'Sign In' : 'Register'}
-                {tab === item && (
-                  <motion.div
-                    layoutId="tab-indicator"
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      borderRadius: 12,
-                      background: 'rgba(124,106,255,0.12)',
-                      border: '1px solid rgba(124,106,255,0.18)',
-                      boxShadow: '0 8px 20px rgba(124,106,255,0.10)',
-                      zIndex: -1,
-                    }}
-                  />
-                )}
-              </button>
-            ))}
-          </div>
 
           {/* Header */}
           <div style={{ marginBottom: 22 }}>
@@ -1256,18 +857,15 @@ export default function LoginPage() {
                 letterSpacing: '-0.03em',
               }}
             >
-              {tab === 'login' ? 'Welcome back 👋' : 'Create your account'}
+              Welcome back 👋
             </h2>
 
             <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', lineHeight: 1.7 }}>
-              {tab === 'login'
-                ? 'Sign in to continue to your premium AAMS workspace.'
-                : 'Start with a beautiful, modern attendance management experience.'}
+              Sign in to continue to your premium AAMS workspace.
             </p>
           </div>
 
           {/* Demo Accounts */}
-          {tab === 'login' && (
             <div
               style={{
                 marginBottom: 18,
@@ -1325,7 +923,6 @@ export default function LoginPage() {
                 ))}
               </div>
             </div>
-          )}
 
           {/* Form */}
           <motion.form
@@ -1335,38 +932,6 @@ export default function LoginPage() {
             style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
             noValidate
           >
-            {/* Name */}
-            <AnimatePresence>
-              {tab === 'register' && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.25 }}
-                >
-                  <div className="input-group">
-                    <div className="floating-label-group">
-                      <input
-                        id="reg-name"
-                        className={`input ${fieldError.name ? 'input-error' : ''}`}
-                        type="text"
-                        placeholder=" "
-                        value={name}
-                        onChange={(e) => {
-                          setName(e.target.value);
-                          setFieldError((prev) => ({ ...prev, name: '' }));
-                        }}
-                        autoComplete="name"
-                      />
-                      <label htmlFor="reg-name">Full Name</label>
-                    </div>
-                    {fieldError.name && (
-                      <span style={{ fontSize: '0.74rem', color: 'var(--danger)' }}>{fieldError.name}</span>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             {/* Email */}
             <div className="input-group">
@@ -1406,7 +971,7 @@ export default function LoginPage() {
                     setPassword(e.target.value);
                     setFieldError((prev) => ({ ...prev, password: '' }));
                   }}
-                  autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
+                  autoComplete="current-password"
                   style={{ paddingRight: 44 }}
                 />
                 <label htmlFor="login-password" style={{ left: 42 }}>Password</label>
@@ -1437,77 +1002,8 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Register role selection */}
-            <AnimatePresence>
-              {tab === 'register' && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.28 }}
-                >
-                  <div className="input-group">
-                    <label className="input-label">Select Role</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                      {ROLES.map((role) => (
-                        <motion.button
-                          whileHover={{ y: -2 }}
-                          whileTap={{ scale: 0.98 }}
-                          key={role.id}
-                          type="button"
-                          onClick={() => setSelectedRole(role.id)}
-                          style={{
-                            padding: '11px 12px',
-                            borderRadius: '16px',
-                            cursor: 'pointer',
-                            border:
-                              selectedRole === role.id
-                                ? '1.5px solid var(--border-accent)'
-                                : '1.5px solid var(--border-default)',
-                            background:
-                              selectedRole === role.id
-                                ? 'rgba(124,106,255,0.08)'
-                                : 'rgba(255,255,255,0.03)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 9,
-                            transition: 'all 0.18s ease',
-                            textAlign: 'left',
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 30,
-                              height: 30,
-                              borderRadius: 10,
-                              background: role.gradient,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                              boxShadow: selectedRole === role.id ? '0 0 18px rgba(124,106,255,0.18)' : 'none',
-                            }}
-                          >
-                            <role.icon size={14} color="white" />
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                              {role.label}
-                            </div>
-                            <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', lineHeight: 1.35 }}>
-                              {role.desc}
-                            </div>
-                          </div>
-                        </motion.button>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
             {/* Forgot password */}
-            {tab === 'login' && (
+            {(
               <div style={{ textAlign: 'right', marginTop: -2 }}>
                 <button
                   type="button"
@@ -1528,7 +1024,7 @@ export default function LoginPage() {
 
             {/* Forgot password panel */}
             <AnimatePresence>
-              {forgotOpen && tab === 'login' && (
+              {forgotOpen && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -1608,54 +1104,14 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <div className="btn-spinner" />
-                  <span>{tab === 'login' ? 'Signing in...' : 'Creating account...'}</span>
+                  <span>Signing in...</span>
                 </>
               ) : (
                 <>
-                  <span>{tab === 'login' ? 'Sign In' : 'Create Account'}</span>
+                  <span>Sign In</span>
                   <ChevronRight size={18} />
                 </>
               )}
-            </motion.button>
-
-            {/* Divider */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 2px' }}>
-              <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, var(--border-subtle))' }} />
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>or continue with</span>
-              <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, var(--border-subtle), transparent)' }} />
-            </div>
-
-            {/* Google SSO */}
-            <motion.button
-              whileHover={{ y: -1, borderColor: 'var(--border-strong)' }}
-              whileTap={{ scale: 0.99 }}
-              type="button"
-              onClick={() => alert('Google SSO — connect to OAuth provider')}
-              style={{
-                width: '100%',
-                padding: '12px 18px',
-                borderRadius: '16px',
-                border: '1.5px solid var(--border-default)',
-                background: 'rgba(255,255,255,0.03)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-                color: 'var(--text-primary)',
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                transition: 'all 0.18s ease',
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-              Sign {tab === 'login' ? 'in' : 'up'} with Google
             </motion.button>
           </motion.form>
 
@@ -1682,20 +1138,10 @@ export default function LoginPage() {
       </motion.section>
 
       <style>{`
-        @media (max-width: 1024px) {
-          .login-left-panel {
-            padding: 44px 36px !important;
-          }
-        }
-
         @media (max-width: 768px) {
-          .login-left-panel {
-            display: none !important;
-          }
-
-          .login-right-panel {
+          .login-centered-panel {
             width: 100% !important;
-            padding: 28px 18px !important;
+            padding: 24px 16px !important;
           }
         }
       `}</style>
