@@ -104,12 +104,14 @@ export function AuthProvider({ children }) {
 
       setUser(userData);
       setLoading(false);
-      // Normalize faculty -> teacher for routing
+      // Normalize faculty/teacher roles for routing
       const role = userData.role === 'faculty' ? 'teacher' : userData.role;
       return { success: true, role };
     } catch (err) {
       setLoading(false);
-      return { success: false, error: err.message || 'Invalid credentials' };
+      // Surface backend error messages (e.g., "User not registered")
+      const backendMsg = err?.message || err?.data?.message;
+      return { success: false, error: backendMsg || 'Login failed. Please try again.' };
     }
   };
 

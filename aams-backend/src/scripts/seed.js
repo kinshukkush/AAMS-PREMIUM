@@ -6,7 +6,7 @@ const Course = require('../models/Course');
 const Timetable = require('../models/Timetable');
 const AttendanceRecord = require('../models/AttendanceRecord');
 const AttendanceSession = require('../models/AttendanceSession');
-const Department = require('../models/Department'); // Needed since some models require department reference
+const Department = require('../models/Department');
 
 const indianNames = [
   "Aarav Sharma", "Vivaan Verma", "Aditya Singh", "Vihaan Gupta", "Arjun Patel",
@@ -33,22 +33,29 @@ const indianNames = [
 
 async function seed() {
   try {
-    if (!process.env.MONGO_URI) {
-      console.error("MONGO_URI is missing in .env");
+    const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+    if (!mongoUri) {
+      console.error("MONGODB_URI is missing in .env");
       process.exit(1);
     }
 
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(mongoUri);
     console.log("Connected to MongoDB");
 
     // Clear collections
+    await User.deleteMany({});
+    try {
+      await User.collection.dropIndex("email_1");
+    } catch (e) {
+      console.log("Index email_1 not found or already dropped.");
+    }
     await User.deleteMany({});
     await Course.deleteMany({});
     await Timetable.deleteMany({});
     await AttendanceRecord.deleteMany({});
     await AttendanceSession.deleteMany({});
-    
-    // Create a dummy department to satisfy required schema refs (Course/Timetable)
+
+    // Create a dummy department to satisfy required schema refs
     await Department.deleteMany({});
     const dept = await Department.create({
       code: "CSE",
@@ -56,79 +63,129 @@ async function seed() {
       hod: null
     });
 
-    // 1. Create Admin
-    const adminPassword = await bcrypt.hash("Admin@123", 10);
+    // ─── 1. Admin ───────────────────────────────────────────────────────────
+    // Username (enrollmentId): 1234   |  Password: 1234@admin
+    const adminPassword = await bcrypt.hash("1234@admin", 10);
     await User.create({
       name: "Admin",
-      email: "admin@aams.demo",
-      enrollmentId: "00000001",
+      enrollmentId: "1234",
       password: adminPassword,
       role: "admin",
-      isDefaultPassword: true,
+      isDefaultPassword: false,
       department: dept._id
     });
+    console.log("✅ Admin created — ID: 1234 / Pass: 1234@admin");
 
-    // 2. Create Teachers
-    const teacherNames = [
+    // ─── 2. Faculty ─────────────────────────────────────────────────────────
+    // Demo faculty  →  ID: 123456   |  Password: 123456@faculty
+    // Other faculty →  ID: 123457+  |  Password: {id}@faculty
+    const teacherLastNames = [
       "Sharma", "Verma", "Singh", "Gupta", "Patel",
       "Rao", "Nair", "Mehta", "Iyer", "Khan"
     ];
     const teachers = [];
-    let teacherId = 10000001;
-    for (const name of teacherNames) {
-      const isDemoTeacher = teacherId === 10000001;
-      const password = await bcrypt.hash(isDemoTeacher ? "Faculty@123" : `${teacherId}@`, 10);
+    let teacherStartId = 123456;
+
+    for (let i = 0; i < teacherLastNames.length; i++) {
+      const name = teacherLastNames[i];
+      const currentId = (teacherStartId + i).toString();
+      const isDemoTeacher = i === 0; // 123456 is the demo faculty
+
+      const rawPassword = isDemoTeacher ? "123456@faculty" : `${currentId}@faculty`;
+      const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
       const teacher = await User.create({
         name: `Dr. ${name}`,
-        email: isDemoTeacher ? "faculty@aams.demo" : `dr.${name.toLowerCase()}@aams.edu`,
-        enrollmentId: teacherId.toString(),
-        password: password,
+        enrollmentId: currentId,
+        password: hashedPassword,
         role: "teacher",
-        isDefaultPassword: true,
-        department: dept._id
+        isDefaultPassword: false,
+        department: dept._id,
+        facultyProfile: { employeeCode: currentId, designation: "Assistant Professor" }
       });
       teachers.push(teacher);
-      teacherId++;
     }
+    console.log("✅ 10 Faculty created — Demo ID: 123456 / Pass: 123456@faculty");
 
-    // 3. Create Students
+    // ─── 3. Students ────────────────────────────────────────────────────────
+    // Demo student  →  ID: 12223650  |  Password: 12223650
+    // Other students → ID: 12223601–12223649, 12223651+  |  Password: {id}
     const students = [];
+
+    // Determine which index corresponds to ID 12223650
+    // We place 12223650 as the FIRST student (index 0 = demo).
+    // Other students get IDs starting from 12223601 (skipping 12223650).
+
+    const demoStudentId = "12223650";
+    const demoStudentName = "Kinshuk Saxena";
+
+    // Create demo student first
+    const demoStudentPasswordRaw = `${demoStudentId}@`;
+    const demoStudentPassword = await bcrypt.hash(demoStudentPasswordRaw, 10);
+    const demoStudent = await User.create({
+      name: demoStudentName,
+      enrollmentId: demoStudentId,
+      password: demoStudentPassword,
+      role: "student",
+      isDefaultPassword: false,
+      section: "CSE-A",
+      semester: 5,
+      department: dept._id,
+      studentProfile: { rollNo: demoStudentId, batch: "2022-26", semester: 5, section: "CSE-A", admissionYear: 2022 }
+    });
+    students.push(demoStudent);
+    console.log(`✅ Demo student created — ID: ${demoStudentId} / Pass: ${demoStudentPasswordRaw}`);
+
+    // Create 99 more students (IDs 12223601–12223699, skipping 12223650)
     let studentId = 12223601;
-    for (let i = 0; i < 100; i++) {
-      const isDemoStudent = i === 0;
-      const password = await bcrypt.hash(isDemoStudent ? "Student@123" : `${studentId}@`, 10);
-      const name = indianNames[i];
+    let nameIndex = 0;
+    while (students.length < 100) {
+      if (studentId.toString() === demoStudentId) {
+        studentId++;
+        continue;
+      }
+
+      const rawPassword = `${studentId}@`;
+      const hashedPassword = await bcrypt.hash(rawPassword, 10);
+      const name = indianNames[nameIndex % indianNames.length];
+      nameIndex++;
       const firstName = name.split(' ')[0].toLowerCase();
-      const section = i < 50 ? "CSE-A" : "CSE-B";
-      const semester = Math.random() < 0.5 ? 3 : 5;
-      
+      const section = students.length < 51 ? "CSE-A" : "CSE-B";
+      const semester = students.length < 51 ? 5 : 3;
+
       const student = await User.create({
-        name: name,
-        email: isDemoStudent ? "student@aams.demo" : `${firstName}.${studentId}@student.aams.edu`,
+        name,
         enrollmentId: studentId.toString(),
-        password: password,
+        password: hashedPassword,
         role: "student",
-        isDefaultPassword: true,
-        section: section,
-        semester: semester,
-        department: dept._id
+        isDefaultPassword: false,
+        section,
+        semester,
+        department: dept._id,
+        studentProfile: {
+          rollNo: studentId.toString(),
+          batch: "2022-26",
+          semester,
+          section,
+          admissionYear: 2022
+        }
       });
       students.push(student);
       studentId++;
     }
+    console.log("✅ 100 Students created");
 
-    // 4. Create Courses
+    // ─── 4. Courses ─────────────────────────────────────────────────────────
     const coursesData = [
-      { code: "CSE301", name: "Data Structures", section: "CSE-A", semester: 3, teacher: teachers[0]._id },
-      { code: "CSE302", name: "Algorithms", section: "CSE-A", semester: 3, teacher: teachers[1]._id },
+      { code: "CSE301", name: "Data Structures", section: "CSE-A", semester: 5, teacher: teachers[0]._id },
+      { code: "CSE302", name: "Algorithms", section: "CSE-A", semester: 5, teacher: teachers[1]._id },
       { code: "CSE303", name: "DBMS", section: "CSE-B", semester: 3, teacher: teachers[2]._id },
       { code: "CSE501", name: "Machine Learning", section: "CSE-A", semester: 5, teacher: teachers[3]._id },
-      { code: "CSE502", name: "Cloud Computing", section: "CSE-B", semester: 5, teacher: teachers[4]._id }
+      { code: "CSE502", name: "Cloud Computing", section: "CSE-B", semester: 3, teacher: teachers[4]._id }
     ];
 
     const courses = [];
     for (const data of coursesData) {
-      // Find enrolled students
       const enrolled = students
         .filter(s => s.section === data.section && s.semester === data.semester)
         .map(s => s._id);
@@ -144,38 +201,30 @@ async function seed() {
       });
       courses.push(course);
     }
+    console.log("✅ 5 Courses created");
 
-    // 5. Create Timetable
+    // ─── 5. Timetable ───────────────────────────────────────────────────────
     const timetableData = [
-      // CSE301: Mon/Wed/Fri 09:00–10:00
-      { courseIndex: 0, day: 1, start: "09:00", end: "10:00" }, // Mon
-      { courseIndex: 0, day: 3, start: "09:00", end: "10:00" }, // Wed
-      { courseIndex: 0, day: 5, start: "09:00", end: "10:00" }, // Fri
-      // CSE302: Tue/Thu 10:00–11:00
-      { courseIndex: 1, day: 2, start: "10:00", end: "10:00" }, // Tue (Wait, 10-11)
-      { courseIndex: 1, day: 2, start: "10:00", end: "11:00" }, // Tue (Fix)
-      { courseIndex: 1, day: 4, start: "10:00", end: "11:00" }, // Thu
-      // CSE303: Mon/Wed 11:00–12:00
-      { courseIndex: 2, day: 1, start: "11:00", end: "12:00" }, // Mon
-      { courseIndex: 2, day: 3, start: "11:00", end: "12:00" }, // Wed
-      // CSE501: Tue/Thu 14:00–15:00
-      { courseIndex: 3, day: 2, start: "14:00", end: "15:00" }, // Tue
-      { courseIndex: 3, day: 4, start: "14:00", end: "15:00" }, // Thu
-      // CSE502: Mon/Fri 15:00–16:00
-      { courseIndex: 4, day: 1, start: "15:00", end: "16:00" }, // Mon
-      { courseIndex: 4, day: 5, start: "15:00", end: "16:00" }  // Fri
+      { courseIndex: 0, day: 1, start: "09:00", end: "10:00" },
+      { courseIndex: 0, day: 3, start: "09:00", end: "10:00" },
+      { courseIndex: 0, day: 5, start: "09:00", end: "10:00" },
+      { courseIndex: 1, day: 2, start: "10:00", end: "11:00" },
+      { courseIndex: 1, day: 4, start: "10:00", end: "11:00" },
+      { courseIndex: 2, day: 1, start: "11:00", end: "12:00" },
+      { courseIndex: 2, day: 3, start: "11:00", end: "12:00" },
+      { courseIndex: 3, day: 2, start: "14:00", end: "15:00" },
+      { courseIndex: 3, day: 4, start: "14:00", end: "15:00" },
+      { courseIndex: 4, day: 1, start: "15:00", end: "16:00" },
+      { courseIndex: 4, day: 5, start: "15:00", end: "16:00" }
     ];
 
-    // Remove the bad Tue 10-10 entry
-    const finalTimetableData = timetableData.filter(t => t.start !== t.end);
-
-    for (const t of finalTimetableData) {
+    for (const t of timetableData) {
       const courseObj = courses[t.courseIndex];
       await Timetable.create({
         course: courseObj._id,
         teacher: courseObj.teacher,
         department: dept._id,
-        batch: "2025",
+        batch: "2022-26",
         section: courseObj.section,
         dayOfWeek: t.day,
         startTime: t.start,
@@ -184,7 +233,14 @@ async function seed() {
       });
     }
 
-    console.log("✅ Seed complete. 100 students | 10 teachers | 5 courses | timetable");
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("✅ Seed complete!");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("Demo Credentials:");
+    console.log("  🔑 Admin   — ID: 1234         | Pass: 1234@admin");
+    console.log("  🔑 Faculty — ID: 123456        | Pass: 123456@faculty");
+    console.log("  🔑 Student — ID: 12223650      | Pass: 12223650@");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     process.exit(0);
 
   } catch (error) {

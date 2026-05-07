@@ -410,6 +410,12 @@ const NAV_CONFIG = {
         { path: '/admin/notifications', icon: Bell, label: 'Notifications', color: '#F59E0B', badge: true },
       ],
     },
+    {
+      section: 'Account',
+      items: [
+        { path: '/admin/settings', icon: Settings, label: 'Settings', color: '#94a3b8' },
+      ],
+    },
   ],
   teacher: [
     {
@@ -432,6 +438,12 @@ const NAV_CONFIG = {
         { path: '/teacher/analytics', icon: TrendingUp, label: 'Student Analytics', color: '#EC4899' },
       ],
     },
+    {
+      section: 'Account',
+      items: [
+        { path: '/teacher/settings', icon: Settings, label: 'Settings', color: '#94a3b8' },
+      ],
+    },
   ],
   student: [
     {
@@ -451,6 +463,12 @@ const NAV_CONFIG = {
       section: 'Updates',
       items: [
         { path: '/student/notifications', icon: Bell, label: 'Notifications', color: '#F59E0B', badge: true },
+      ],
+    },
+    {
+      section: 'Account',
+      items: [
+        { path: '/student/settings', icon: Settings, label: 'Settings', color: '#94a3b8' },
       ],
     },
   ],

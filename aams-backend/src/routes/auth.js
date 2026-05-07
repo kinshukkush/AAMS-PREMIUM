@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
-const { login, register, getMe, changePassword, completeProfile, refreshToken, logout } = require('../controllers/authController');
+const { login, register, getMe, updateProfile, changePassword, completeProfile, refreshToken, logout } = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/auth');
 const { validate } = require('../middleware/errorHandler');
 
 // Public routes
 router.post('/login', [
-  body('identifier').notEmpty().withMessage('Identifier (email or enrollment ID) required'),
+  body('identifier').notEmpty().withMessage('Username or Enrollment ID required'),
   body('password').notEmpty().withMessage('Password required'),
   validate
 ], login);
@@ -21,9 +21,16 @@ router.get('/me', getMe);
 router.post('/logout', logout);
 router.post('/complete-profile', completeProfile);
 
+// Update name & email
+router.put('/update-profile', [
+  body('name').optional().notEmpty().withMessage('Name cannot be empty'),
+  body('email').optional().isEmail().withMessage('Must be a valid email'),
+  validate
+], updateProfile);
+
 router.post('/change-password', [
   body('currentPassword').notEmpty().withMessage('Current password required'),
-  body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
   validate
 ], changePassword);
 

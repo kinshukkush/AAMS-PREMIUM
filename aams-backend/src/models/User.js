@@ -4,14 +4,14 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Name is required'],
+    default: 'New User',
     trim: true,
     maxlength: [100, 'Name cannot exceed 100 characters']
   },
   email: {
     type: String,
-    required: [true, 'Email is required'],
     unique: true,
+    sparse: true,
     lowercase: true,
     trim: true,
     match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email']
@@ -46,7 +46,7 @@ const userSchema = new mongoose.Schema({
 
   // Student-specific fields
   studentProfile: {
-    rollNo: { type: String, sparse: true },
+    rollNo: { type: String },  // indexed below via schema.index() to avoid duplicates
     enrollmentNo: { type: String },
     batch: { type: String },
     semester: { type: Number, min: 1, max: 12 },
@@ -56,7 +56,7 @@ const userSchema = new mongoose.Schema({
 
   // Faculty-specific fields
   facultyProfile: {
-    employeeCode: { type: String, sparse: true },
+    employeeCode: { type: String },  // indexed below via schema.index() to avoid duplicates
     designation: { type: String },
     specialization: { type: String }
   },

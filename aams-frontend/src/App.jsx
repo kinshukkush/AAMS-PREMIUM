@@ -35,6 +35,9 @@ import MyAttendance from './pages/student/MyAttendance';
 import StudentProfile from './pages/student/StudentProfile';
 import StudentNotifications from './pages/student/StudentNotifications';
 
+// Settings (shared across all roles)
+import Settings from './pages/Settings';
+
 // Parent Pages
 import ParentDashboard from './pages/parent/ParentDashboard';
 import ChildAttendance from './pages/parent/ChildAttendance';
@@ -43,8 +46,8 @@ import ParentProfile from './pages/parent/ParentProfile';
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
   if (loading) return (
-    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center' }}>
-      <div style={{ width:40, height:40, border:'3px solid var(--border-color)', borderTopColor:'var(--brand-primary)', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 40, height: 40, border: '3px solid var(--border-color)', borderTopColor: 'var(--brand-primary)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
@@ -69,49 +72,52 @@ function AppRoutes() {
       <Toaster />
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-              <Route path="/login" element={<AnimatedPage><LoginPage /></AnimatedPage>} />
-              <Route path="/" element={<RoleRedirect />} />
+          <Route path="/login" element={<AnimatedPage><LoginPage /></AnimatedPage>} />
+          <Route path="/" element={<RoleRedirect />} />
 
-              {/* Admin Routes */}
-              <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><DashboardLayout role="admin" /></ProtectedRoute>}>
-                <Route path="dashboard" element={<AnimatedPage><AdminDashboard /></AnimatedPage>} />
-                <Route path="users" element={<AnimatedPage><UserManagement /></AnimatedPage>} />
-                <Route path="departments" element={<AnimatedPage><DepartmentCourses /></AnimatedPage>} />
-                <Route path="timetable" element={<AnimatedPage><TimetableManager /></AnimatedPage>} />
-                <Route path="reports" element={<AnimatedPage><AttendanceReports /></AnimatedPage>} />
-                <Route path="devices" element={<AnimatedPage><DeviceManagement /></AnimatedPage>} />
-                <Route path="notifications" element={<AnimatedPage><AdminNotifications /></AnimatedPage>} />
-                <Route path="face-registration" element={<AnimatedPage><FaceRegistration /></AnimatedPage>} />
-                <Route path="face-debug" element={<AnimatedPage><FaceDebug /></AnimatedPage>} />
-              </Route>
+          {/* Admin Routes */}
+          <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><DashboardLayout role="admin" /></ProtectedRoute>}>
+            <Route path="dashboard" element={<AnimatedPage><AdminDashboard /></AnimatedPage>} />
+            <Route path="users" element={<AnimatedPage><UserManagement /></AnimatedPage>} />
+            <Route path="departments" element={<AnimatedPage><DepartmentCourses /></AnimatedPage>} />
+            <Route path="timetable" element={<AnimatedPage><TimetableManager /></AnimatedPage>} />
+            <Route path="reports" element={<AnimatedPage><AttendanceReports /></AnimatedPage>} />
+            <Route path="devices" element={<AnimatedPage><DeviceManagement /></AnimatedPage>} />
+            <Route path="notifications" element={<AnimatedPage><AdminNotifications /></AnimatedPage>} />
+            <Route path="face-registration" element={<AnimatedPage><FaceRegistration /></AnimatedPage>} />
+            <Route path="face-debug" element={<AnimatedPage><FaceDebug /></AnimatedPage>} />
+            <Route path="settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
+          </Route>
 
-              {/* Teacher Routes */}
-              <Route path="/teacher" element={<ProtectedRoute allowedRoles={['teacher']}><DashboardLayout role="teacher" /></ProtectedRoute>}>
-                <Route path="dashboard" element={<AnimatedPage><TeacherDashboard /></AnimatedPage>} />
-                <Route path="mark-attendance" element={<AnimatedPage><MarkAttendance /></AnimatedPage>} />
-                <Route path="reports" element={<AnimatedPage><ClassReports /></AnimatedPage>} />
-                <Route path="analytics" element={<AnimatedPage><StudentAnalytics /></AnimatedPage>} />
-                <Route path="timetable" element={<AnimatedPage><TeacherTimetable /></AnimatedPage>} />
-              </Route>
+          {/* Teacher Routes */}
+          <Route path="/teacher" element={<ProtectedRoute allowedRoles={['teacher']}><DashboardLayout role="teacher" /></ProtectedRoute>}>
+            <Route path="dashboard" element={<AnimatedPage><TeacherDashboard /></AnimatedPage>} />
+            <Route path="mark-attendance" element={<AnimatedPage><MarkAttendance /></AnimatedPage>} />
+            <Route path="reports" element={<AnimatedPage><ClassReports /></AnimatedPage>} />
+            <Route path="analytics" element={<AnimatedPage><StudentAnalytics /></AnimatedPage>} />
+            <Route path="timetable" element={<AnimatedPage><TeacherTimetable /></AnimatedPage>} />
+            <Route path="settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
+          </Route>
 
-              {/* Student Routes */}
-              <Route path="/student" element={<ProtectedRoute allowedRoles={['student']}><DashboardLayout role="student" /></ProtectedRoute>}>
-                <Route path="dashboard" element={<AnimatedPage><StudentDashboard /></AnimatedPage>} />
-                <Route path="attendance" element={<AnimatedPage><MyAttendance /></AnimatedPage>} />
-                <Route path="profile" element={<AnimatedPage><StudentProfile /></AnimatedPage>} />
-                <Route path="notifications" element={<AnimatedPage><StudentNotifications /></AnimatedPage>} />
-              </Route>
+          {/* Student Routes */}
+          <Route path="/student" element={<ProtectedRoute allowedRoles={['student']}><DashboardLayout role="student" /></ProtectedRoute>}>
+            <Route path="dashboard" element={<AnimatedPage><StudentDashboard /></AnimatedPage>} />
+            <Route path="attendance" element={<AnimatedPage><MyAttendance /></AnimatedPage>} />
+            <Route path="profile" element={<AnimatedPage><StudentProfile /></AnimatedPage>} />
+            <Route path="notifications" element={<AnimatedPage><StudentNotifications /></AnimatedPage>} />
+            <Route path="settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
+          </Route>
 
-              {/* Parent Routes */}
-              <Route path="/parent" element={<ProtectedRoute allowedRoles={['parent']}><DashboardLayout role="parent" /></ProtectedRoute>}>
-                <Route path="dashboard" element={<AnimatedPage><ParentDashboard /></AnimatedPage>} />
-                <Route path="attendance" element={<AnimatedPage><ChildAttendance /></AnimatedPage>} />
-                <Route path="profile" element={<AnimatedPage><ParentProfile /></AnimatedPage>} />
-              </Route>
+          {/* Parent Routes */}
+          <Route path="/parent" element={<ProtectedRoute allowedRoles={['parent']}><DashboardLayout role="parent" /></ProtectedRoute>}>
+            <Route path="dashboard" element={<AnimatedPage><ParentDashboard /></AnimatedPage>} />
+            <Route path="attendance" element={<AnimatedPage><ChildAttendance /></AnimatedPage>} />
+            <Route path="profile" element={<AnimatedPage><ParentProfile /></AnimatedPage>} />
+          </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </AnimatePresence>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AnimatePresence>
     </>
   );
 }

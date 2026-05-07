@@ -575,9 +575,9 @@ const ROLES = [
 ];
 
 const DEMO_ACCOUNTS = [
-  { role: 'Admin', email: 'admin@aams.demo', password: 'Admin@123', color: '#EC4899' },
-  { role: 'Faculty', email: 'faculty@aams.demo', password: 'Faculty@123', color: '#7C6AFF' },
-  { role: 'Student', email: 'student@aams.demo', password: 'Student@123', color: '#06B6D4' },
+  { role: 'Admin', identifier: '1234', password: '1234@admin', color: '#EC4899' },
+  { role: 'Faculty', identifier: '123456', password: '123456@faculty', color: '#7C6AFF' },
+  { role: 'Student', identifier: '12223650', password: '12223650@', color: '#06B6D4' },
 ];
 
 function FloatingParticles() {
@@ -693,7 +693,7 @@ function OrbitRings() {
 }
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -716,10 +716,8 @@ export default function LoginPage() {
 
   const validate = () => {
     const errors = {};
-    if (!email.trim()) errors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(email)) errors.email = 'Please enter a valid email';
+    if (!identifier.trim()) errors.identifier = 'Username or Enrollment ID is required';
     if (!password) errors.password = 'Password is required';
-    else if (password.length < 6) errors.password = 'Password must be at least 6 characters';
     return errors;
   };
 
@@ -740,7 +738,7 @@ export default function LoginPage() {
     }
 
     setFieldError({});
-    const result = await login(email, password);
+    const result = await login(identifier, password);
 
     if (result.success) {
       navigate(`/${result.role}/dashboard`);
@@ -757,16 +755,16 @@ export default function LoginPage() {
   };
 
   const fillDemo = async (account) => {
-    setEmail(account.email);
+    setIdentifier(account.identifier);
     setPassword(account.password);
     setError('');
     setFieldError({});
 
-    const result = await login(account.email, account.password);
+    const result = await login(account.identifier, account.password);
     if (result.success) {
       navigate(`/${result.role}/dashboard`);
     } else {
-      setError(result.error || 'Invalid email or password');
+      setError(result.error || 'Demo login failed. Please seed the database first.');
       triggerShake();
     }
   };
@@ -866,63 +864,63 @@ export default function LoginPage() {
           </div>
 
           {/* Demo Accounts */}
-            <div
-              style={{
-                marginBottom: 18,
-                padding: '14px 14px 12px',
-                borderRadius: '18px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                Demo Accounts
-              </div>
+          <div
+            style={{
+              marginBottom: 18,
+              padding: '14px 14px 12px',
+              borderRadius: '18px',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginBottom: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              Demo Accounts
+            </div>
 
-              <div style={{ display: 'grid', gap: 8 }}>
-                {DEMO_ACCOUNTS.map((account) => (
-                  <motion.button
-                    key={account.role}
-                    whileHover={{ scale: 1.01, y: -1 }}
-                    whileTap={{ scale: 0.99 }}
-                    type="button"
-                    onClick={() => fillDemo(account)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 10,
-                      padding: '10px 12px',
-                      borderRadius: '14px',
-                      background: 'rgba(13,13,26,0.65)',
-                      border: '1px solid var(--border-default)',
-                      color: 'var(--text-primary)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                      <div
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: '50%',
-                          background: account.color,
-                          boxShadow: `0 0 10px ${account.color}`,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <div style={{ textAlign: 'left', minWidth: 0 }}>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 700 }}>{account.role}</div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {account.email}
-                        </div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {DEMO_ACCOUNTS.map((account) => (
+                <motion.button
+                  key={account.role}
+                  whileHover={{ scale: 1.01, y: -1 }}
+                  whileTap={{ scale: 0.99 }}
+                  type="button"
+                  onClick={() => fillDemo(account)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                    padding: '10px 12px',
+                    borderRadius: '14px',
+                    background: 'rgba(13,13,26,0.65)',
+                    border: '1px solid var(--border-default)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    <div
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        background: account.color,
+                        boxShadow: `0 0 10px ${account.color}`,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div style={{ textAlign: 'left', minWidth: 0 }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700 }}>{account.role}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        ID: {account.identifier}
                       </div>
                     </div>
-                    <ArrowRight size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                  </motion.button>
-                ))}
-              </div>
+                  </div>
+                  <ArrowRight size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                </motion.button>
+              ))}
             </div>
+          </div>
 
           {/* Form */}
           <motion.form
@@ -933,27 +931,27 @@ export default function LoginPage() {
             noValidate
           >
 
-            {/* Email */}
+            {/* Identifier / Enrollment ID */}
             <div className="input-group">
               <div className="floating-label-group input-with-icon">
                 <Mail className="input-icon" size={16} />
                 <input
-                  id="login-email"
-                  className={`input ${fieldError.email ? 'input-error' : ''}`}
-                  type="email"
+                  id="login-identifier"
+                  className={`input ${fieldError.identifier ? 'input-error' : ''}`}
+                  type="text"
                   placeholder=" "
-                  value={email}
+                  value={identifier}
                   onChange={(e) => {
-                    setEmail(e.target.value);
-                    setFieldError((prev) => ({ ...prev, email: '' }));
+                    setIdentifier(e.target.value);
+                    setFieldError((prev) => ({ ...prev, identifier: '' }));
                   }}
-                  autoComplete="email"
+                  autoComplete="username"
                   autoFocus
                 />
-                <label htmlFor="login-email" style={{ left: 42 }}>Email Address</label>
+                <label htmlFor="login-identifier" style={{ left: 42 }}>Username / Enrollment ID</label>
               </div>
-              {fieldError.email && (
-                <span style={{ fontSize: '0.74rem', color: 'var(--danger)' }}>{fieldError.email}</span>
+              {fieldError.identifier && (
+                <span style={{ fontSize: '0.74rem', color: 'var(--danger)' }}>{fieldError.identifier}</span>
               )}
             </div>
 

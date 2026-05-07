@@ -177,4 +177,5 @@ docker-compose.override.yml
 .sass-cache/
 
 # Session documentation and status files
+deploy.md
 DEPLOYMENT.md

@@ -11,27 +11,38 @@ const login = asyncHandler(async (req, res) => {
   const { identifier, password } = req.body;
 
   if (!identifier || !password) {
-    return res.status(400).json({ success: false, message: 'Identifier (email or enrollment ID) and password are required.' });
+    return res.status(400).json({ success: false, message: 'Username/Enrollment ID and password are required.' });
   }
 
+  // Look up by enrollmentId (numeric) or by email (for backward compat)
   let user = await User.findOne({
-    $or: [{ email: identifier.toLowerCase() }, { enrollmentId: identifier }]
+    $or: [{ enrollmentId: identifier }, { email: identifier.toLowerCase() }]
   }).select('+password');
 
-  // Auto-registration logic for students who log in for the first time
-  if (!user && password === `${identifier}@` && /^\d+$/.test(identifier)) {
+  // Auto-registration: if user doesn't exist, create them as a student
+  if (!user) {
+    const defaultDepartment = await require('../models/Department').findOne();
     user = await User.create({
-      name: "Pending Registration",
-      email: `${identifier}@student.aams.edu`,
+      name: `Student ${identifier}`,
       enrollmentId: identifier,
       password: password,
       role: 'student',
-      isDefaultPassword: true
+      isDefaultPassword: true,
+      department: defaultDepartment ? defaultDepartment._id : null,
+      studentProfile: {
+        rollNo: identifier,
+        batch: "2024",
+        semester: 1,
+      }
     });
+
+    // Fetch the newly created user with required selections
+    user = await User.findById(user._id).select('+password');
   }
 
-  if (!user || !(await user.comparePassword(password))) {
-    return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+  // Verify password
+  if (!(await user.comparePassword(password))) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials. Please check your password.' });
   }
 
   if (!user.isActive) {
@@ -50,17 +61,22 @@ const login = asyncHandler(async (req, res) => {
 const register = asyncHandler(async (req, res) => {
   const {
     name, email, password, role, phone, department,
-    studentProfile, facultyProfile, parentProfile
+    studentProfile, facultyProfile, parentProfile, enrollmentId
   } = req.body;
 
-  const existing = await User.findOne({ email: email.toLowerCase() });
+  const existing = await User.findOne({
+    $or: [
+      { email: email.toLowerCase() },
+      ...(enrollmentId ? [{ enrollmentId }] : [])
+    ]
+  });
   if (existing) {
-    return res.status(409).json({ success: false, message: 'User with this email already exists.' });
+    return res.status(409).json({ success: false, message: 'User with this email or enrollment ID already exists.' });
   }
 
   const user = await User.create({
     name, email, password, role, phone, department,
-    studentProfile, facultyProfile, parentProfile
+    studentProfile, facultyProfile, parentProfile, enrollmentId
   });
 
   // Generate temporary reset token for password setup (secure approach)
@@ -69,7 +85,7 @@ const register = asyncHandler(async (req, res) => {
     process.env.JWT_SECRET,
     { expiresIn: '24h' }
   );
-  
+
   const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
   const resetUrl = `${clientUrl}/setup-password/${resetToken}`;
 
@@ -94,15 +110,43 @@ const getMe = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { user } });
 });
 
+// @desc    Update current user's profile (name & email)
+// @route   PUT /api/auth/update-profile
+// @access  Private
+const updateProfile = asyncHandler(async (req, res) => {
+  const { name, email } = req.body;
+
+  if (!name && !email) {
+    return res.status(400).json({ success: false, message: 'At least one field (name or email) is required.' });
+  }
+
+  // If changing email, check it's not already taken
+  if (email) {
+    const existing = await User.findOne({ email: email.toLowerCase(), _id: { $ne: req.user._id } });
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'This email is already in use by another account.' });
+    }
+  }
+
+  const updates = {};
+  if (name) updates.name = name.trim();
+  if (email) updates.email = email.toLowerCase().trim();
+
+  const user = await User.findByIdAndUpdate(req.user._id, updates, {
+    new: true,
+    runValidators: true,
+  }).populate('department', 'name code');
+
+  if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
+
+  res.json({ success: true, message: 'Profile updated successfully.', data: { user } });
+});
+
 // @desc    Change password
 // @route   POST /api/auth/change-password
 // @access  Private
 const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
-
-  if (!newPassword || newPassword.length < 8 || !/\d/.test(newPassword) || !/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)) {
-    return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long, contain at least 1 number, and 1 special character.' });
-  }
 
   const user = await User.findById(req.user._id).select('+password');
 
@@ -125,11 +169,11 @@ const completeProfile = asyncHandler(async (req, res) => {
   if (!name) {
     return res.status(400).json({ success: false, message: 'Name is required' });
   }
-  
+
   const user = await User.findById(req.user._id);
   user.name = name;
   await user.save();
-  
+
   res.json({ success: true, message: 'Profile updated successfully', data: { user } });
 });
 
@@ -161,4 +205,4 @@ const logout = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Logged out successfully.' });
 });
 
-module.exports = { login, register, getMe, changePassword, completeProfile, refreshToken, logout };
+module.exports = { login, register, getMe, updateProfile, changePassword, completeProfile, refreshToken, logout };
