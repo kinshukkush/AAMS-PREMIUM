@@ -6,8 +6,10 @@ import {
 } from 'lucide-react';
 import { fadeUp, scaleIn, stagger } from '../../utils/animations';
 import toast from 'react-hot-toast';
+import { attendanceAPI, usersAPI } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
-const SESSION = { code: 'CSE-301-LIVE', course: 'Data Structures (CSE-301)', startTime: new Date(), total: 45 };
+const SESSION = { code: 'CSE-301-LIVE', course: 'Data Structures (CSE-301)', startTime: new Date(), total: 50 };
 
 /* ─── QR Tab ─────────────────────────────────────────────────── */
 function QRTab() {
@@ -45,9 +47,9 @@ function QRTab() {
         <div style={{ width: 112, height: 112, background: 'white', borderRadius: 12, padding: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg viewBox="0 0 100 100" width="96" height="96">
             {/* Simplified QR pattern */}
-            {[0,1,2,3,4,5,6].map(r => [0,1,2,3,4,5,6].map(c => (
-              <rect key={`${r}-${c}`} x={c*13+2} y={r*13+2} width={11} height={11}
-                fill={(r<3&&c<3)||(r<3&&c>3&&c<7)||(r>3&&c<3)||(r===3&&c===3) ? '#0F1117' : 'transparent'} />
+            {[0, 1, 2, 3, 4, 5, 6].map(r => [0, 1, 2, 3, 4, 5, 6].map(c => (
+              <rect key={`${r}-${c}`} x={c * 13 + 2} y={r * 13 + 2} width={11} height={11}
+                fill={(r < 3 && c < 3) || (r < 3 && c > 3 && c < 7) || (r > 3 && c < 3) || (r === 3 && c === 3) ? '#0F1117' : 'transparent'} />
             )))}
           </svg>
         </div>
@@ -89,12 +91,12 @@ function QRTab() {
 
 /* ─── Face Recognition Tab ───────────────────────────────────── */
 function FaceTab() {
-  const videoRef  = useRef(null);
+  const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [active, setActive]     = useState(false);
+  const [active, setActive] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [results, setResults]   = useState([]);
-  const intervalRef             = useRef(null);
+  const [results, setResults] = useState([]);
+  const intervalRef = useRef(null);
 
   const startCamera = async () => {
     try {
@@ -109,10 +111,10 @@ function FaceTab() {
   };
 
   const simulateScan = () => {
-    const names = ['Arjun Patel','Priya Singh','Rahul Mehta','Neha Gupta'];
+    const names = ['Arjun Patel', 'Priya Singh', 'Rahul Mehta', 'Neha Gupta'];
     const conf = (88 + Math.random() * 11).toFixed(1);
     if (Math.random() > 0.3) {
-      setResults(r => [{ name: names[Math.floor(Math.random()*names.length)], conf, time: new Date().toLocaleTimeString(), id: Date.now() }, ...r.slice(0, 9)]);
+      setResults(r => [{ name: names[Math.floor(Math.random() * names.length)], conf, time: new Date().toLocaleTimeString(), id: Date.now() }, ...r.slice(0, 9)]);
     }
   };
 
@@ -191,25 +193,59 @@ function FaceTab() {
   );
 }
 
-/* ─── Manual Tab ─────────────────────────────────────────────── */
-function ManualTab() {
-  const STUDENTS = Array.from({ length: 12 }, (_, i) => ({
-    id: `STU${1000+i}`, name: ['Arjun Patel','Priya Singh','Rahul Mehta','Neha Gupta','Vikram Shah','Anjali Verma','Karan Joshi','Divya Nair','Ravi Kumar','Meera Nair','Amit Sharma','Zara Khan'][i],
-    rollNo: `CSE-${i+1}`, present: null
-  }));
-  const [students, setStudents] = useState(STUDENTS);
-  const [search, setSearch]     = useState('');
+function ManualTab({ section = 'CSE-A' }) {
+  const [students, setStudents] = useState([]);
+  const [search, setSearch] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const toggle = (id) => setStudents(s => s.map(x => x.id === id ? { ...x, present: x.present === true ? null : true } : x));
+  useEffect(() => {
+    const fetchStudents = async () => {
+      setLoading(true);
+      try {
+        const res = await usersAPI.getAll({ role: 'student', section });
+        if (res.success) {
+          setStudents(res.data.users.map(s => ({ ...s, present: null })));
+        }
+      } catch (err) {
+        toast.error('Failed to load students');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStudents();
+  }, [section]);
+
+  const toggle = (id) => setStudents(s => s.map(x => x._id === id ? { ...x, present: x.present === true ? false : true } : x));
   const markAll = (val) => setStudents(s => s.map(x => ({ ...x, present: val })));
-  const filtered = students.filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.rollNo.toLowerCase().includes(search.toLowerCase()));
+  const filtered = students.filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.enrollmentId?.toLowerCase().includes(search.toLowerCase()));
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const unmarked = students.filter(s => s.present === null).length;
     if (unmarked > 0) { toast.error(`${unmarked} students still unmarked`); return; }
-    setSubmitted(true);
-    toast.success(`Attendance submitted! ${students.filter(s => s.present).length}/${students.length} present`);
+
+    setLoading(true);
+    try {
+      const attendanceData = students.map(s => ({
+        student: s._id,
+        status: s.present ? 'present' : 'absent'
+      }));
+
+      const res = await attendanceAPI.bulkMark({
+        course: '654a1b2c3d4e5f6a7b8c9d04', // Mock course ID
+        sessionCode: SESSION.code,
+        records: attendanceData
+      });
+
+      if (res.success) {
+        setSubmitted(true);
+        toast.success(`Attendance submitted! ${students.filter(s => s.present).length}/${students.length} present`);
+      }
+    } catch (err) {
+      toast.error('Failed to submit attendance');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const presentCount = students.filter(s => s.present === true).length;
@@ -237,22 +273,22 @@ function ManualTab() {
           <motion.div variants={fadeUp} custom={1} className="glass-card" style={{ overflow: 'hidden', marginBottom: 16 }}>
             <div style={{ maxHeight: 400, overflowY: 'auto' }}>
               {filtered.map(s => (
-                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer', transition: 'background 0.15s', background: s.present === true ? 'rgba(52,211,153,0.06)' : s.present === false ? 'rgba(248,113,113,0.06)' : 'transparent' }}
-                  onClick={() => toggle(s.id)}
+                <div key={s._id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer', transition: 'background 0.15s', background: s.present === true ? 'rgba(52,211,153,0.06)' : s.present === false ? 'rgba(248,113,113,0.06)' : 'transparent' }}
+                  onClick={() => toggle(s._id)}
                 >
                   <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.8rem' }}>
                     {s.name[0]}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{s.name}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{s.rollNo}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{s.enrollmentId}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button id={`present-${s.id}`} onClick={e => { e.stopPropagation(); setStudents(st => st.map(x => x.id === s.id ? {...x, present: true} : x)); }}
+                    <button id={`present-${s._id}`} onClick={e => { e.stopPropagation(); setStudents(st => st.map(x => x._id === s._id ? { ...x, present: true } : x)); }}
                       style={{ padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, background: s.present === true ? 'var(--success)' : 'var(--bg-elevated)', color: s.present === true ? 'white' : 'var(--text-muted)', transition: 'all 0.15s' }}>
                       Present
                     </button>
-                    <button id={`absent-${s.id}`} onClick={e => { e.stopPropagation(); setStudents(st => st.map(x => x.id === s.id ? {...x, present: false} : x)); }}
+                    <button id={`absent-${s._id}`} onClick={e => { e.stopPropagation(); setStudents(st => st.map(x => x._id === s._id ? { ...x, present: false } : x)); }}
                       style={{ padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, background: s.present === false ? 'var(--danger)' : 'var(--bg-elevated)', color: s.present === false ? 'white' : 'var(--text-muted)', transition: 'all 0.15s' }}>
                       Absent
                     </button>
@@ -279,9 +315,9 @@ export default function MarkAttendance() {
   const [activeTab, setTab] = useState('qr');
   const [elapsed, setElapsed] = useState(0);
   const TABS = [
-    { id: 'qr',   icon: QrCode,       label: 'QR Code' },
-    { id: 'face', icon: ScanFace,      label: 'Face Recognition' },
-    { id: 'manual',icon: ClipboardList,label: 'Manual' },
+    { id: 'qr', icon: QrCode, label: 'QR Code' },
+    { id: 'face', icon: ScanFace, label: 'Face Recognition' },
+    { id: 'manual', icon: ClipboardList, label: 'Manual' },
   ];
 
   useEffect(() => {
@@ -289,7 +325,7 @@ export default function MarkAttendance() {
     return () => clearInterval(t);
   }, []);
 
-  const fmtElapsed = `${String(Math.floor(elapsed/60)).padStart(2,'0')}:${String(elapsed%60).padStart(2,'0')}`;
+  const fmtElapsed = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
 
   return (
     <div>
@@ -343,8 +379,8 @@ export default function MarkAttendance() {
 
       <AnimatePresence mode="wait">
         <motion.div key={activeTab} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}>
-          {activeTab === 'qr'     && <QRTab />}
-          {activeTab === 'face'   && <FaceTab />}
+          {activeTab === 'qr' && <QRTab />}
+          {activeTab === 'face' && <FaceTab />}
           {activeTab === 'manual' && <ManualTab />}
         </motion.div>
       </AnimatePresence>

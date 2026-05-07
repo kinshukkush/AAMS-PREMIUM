@@ -12,11 +12,12 @@ const escapeRegex = (str) => {
 // @route   GET /api/users
 // @access  Admin
 const getUsers = asyncHandler(async (req, res) => {
-  const { role, department, search, page = 1, limit = 20, isActive } = req.query;
+  const { role, department, section, search, page = 1, limit = 20, isActive } = req.query;
 
   const filter = {};
   if (role) filter.role = role;
   if (department) filter.department = department;
+  if (section) filter.section = section;
   if (isActive !== undefined) filter.isActive = isActive === 'true';
   if (search) {
     const escapedSearch = escapeRegex(search);

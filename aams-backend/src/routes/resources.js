@@ -14,10 +14,10 @@ const Notification = require('../models/Notification');
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Validation failed', 
-      errors: errors.array() 
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      errors: errors.array()
     });
   }
   next();
@@ -122,7 +122,7 @@ timetableRouter.get('/', asyncHandler(async (req, res) => {
 
   const slots = await Timetable.find(filter)
     .populate('course', 'name code credits')
-    .populate('faculty', 'name email')
+    .populate('teacher', 'name email')
     .populate('department', 'name code')
     .sort({ dayOfWeek: 1, startTime: 1 });
 
@@ -133,7 +133,7 @@ timetableRouter.post('/', authorize('admin'), validateTimetable, asyncHandler(as
   const slot = await Timetable.create(req.body);
   await slot.populate([
     { path: 'course', select: 'name code' },
-    { path: 'faculty', select: 'name' },
+    { path: 'teacher', select: 'name' },
     { path: 'department', select: 'name code' }
   ]);
   res.status(201).json({ success: true, data: { slot } });
@@ -142,7 +142,7 @@ timetableRouter.post('/', authorize('admin'), validateTimetable, asyncHandler(as
 timetableRouter.put('/:id', authorize('admin'), validateTimetable, asyncHandler(async (req, res) => {
   const slot = await Timetable.findByIdAndUpdate(req.params.id, req.body, { new: true })
     .populate('course', 'name code')
-    .populate('faculty', 'name');
+    .populate('teacher', 'name');
   res.json({ success: true, data: { slot } });
 }));
 
@@ -222,18 +222,22 @@ reportRouter.get('/summary', authorize('admin', 'faculty'), asyncHandler(async (
 
   const [overall] = await AttendanceRecord.aggregate([
     { $match: match },
-    { $group: {
-      _id: null,
-      total: { $sum: 1 },
-      present: { $sum: { $cond: [{ $in: ['$status', ['present', 'late']] }, 1, 0] } },
-      absent: { $sum: { $cond: [{ $eq: ['$status', 'absent'] }, 1, 0] } },
-      late: { $sum: { $cond: [{ $eq: ['$status', 'late'] }, 1, 0] } }
-    }},
-    { $project: {
-      _id: 0, total: 1, present: 1, absent: 1, late: 1,
-      // SECURITY FIX: Handle division by zero
-      percentage: { $cond: [{ $eq: ['$total', 0] }, 0, { $round: [{ $multiply: [{ $divide: ['$present', '$total'] }, 100] }, 1] }] }
-    }}
+    {
+      $group: {
+        _id: null,
+        total: { $sum: 1 },
+        present: { $sum: { $cond: [{ $in: ['$status', ['present', 'late']] }, 1, 0] } },
+        absent: { $sum: { $cond: [{ $eq: ['$status', 'absent'] }, 1, 0] } },
+        late: { $sum: { $cond: [{ $eq: ['$status', 'late'] }, 1, 0] } }
+      }
+    },
+    {
+      $project: {
+        _id: 0, total: 1, present: 1, absent: 1, late: 1,
+        // SECURITY FIX: Handle division by zero
+        percentage: { $cond: [{ $eq: ['$total', 0] }, 0, { $round: [{ $multiply: [{ $divide: ['$present', '$total'] }, 100] }, 1] }] }
+      }
+    }
   ]);
 
   res.json({ success: true, data: { summary: overall || { total: 0, present: 0, absent: 0, late: 0, percentage: 0 } } });

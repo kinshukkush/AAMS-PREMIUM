@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, ChevronLeft, ChevronRight, Download, Filter,
@@ -6,45 +6,82 @@ import {
 } from 'lucide-react';
 import { fadeUp, stagger } from '../../utils/animations';
 import toast from 'react-hot-toast';
+import { attendanceAPI } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-const generateCalendarData = () => {
-  const d = {};
-  for (let day = 1; day <= 30; day++) {
-    const r = Math.random();
-    d[day] = r > 0.85 ? 'holiday' : r > 0.15 ? 'present' : r > 0.05 ? 'absent' : 'pending';
-  }
-  return d;
-};
-
-const CAL_DATA = generateCalendarData();
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 const STATUS_CONFIG = {
   present: { color: '#34D399', bg: 'rgba(52,211,153,0.20)', label: 'Present', icon: CheckCircle },
-  absent:  { color: '#F87171', bg: 'rgba(248,113,113,0.20)', label: 'Absent',  icon: XCircle },
-  holiday: { color: '#FBBF24', bg: 'rgba(251,191,36,0.20)',  label: 'Holiday', icon: Clock },
-  pending: { color: '#9BA3B8', bg: 'rgba(155,163,184,0.10)', label: 'No class',icon: null },
-};
-
-const CLASSES_BY_DAY = {
-  5:  [{ course: 'Data Structures', time: '09:00', status: 'present', faculty: 'Dr. Singh' }],
-  7:  [{ course: 'Mathematics III', time: '11:00', status: 'absent',  faculty: 'Prof. Mehta' },{ course: 'DBMS', time: '14:00', status: 'present', faculty: 'Dr. Patel' }],
-  12: [{ course: 'Computer Networks', time: '09:00', status: 'present', faculty: 'Prof. Kumar' }],
+  absent: { color: '#F87171', bg: 'rgba(248,113,113,0.20)', label: 'Absent', icon: XCircle },
+  holiday: { color: '#FBBF24', bg: 'rgba(251,191,36,0.20)', label: 'Holiday', icon: Clock },
+  pending: { color: '#9BA3B8', bg: 'rgba(155,163,184,0.10)', label: 'No class', icon: null },
 };
 
 export default function MyAttendance() {
-  const [month, setMonth]       = useState(3);  // April
-  const [year]                  = useState(2026);
-  const [view, setView]         = useState('calendar'); // 'calendar' | 'list'
-  const [selectedDay, setDay]   = useState(null);
-  const [popoverPos, setPopoverPos] = useState({ x: 0, y: 0 });
+  const { user } = useAuth();
+  const [records, setRecords] = useState([]);
+  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, percentage: 0 });
+  const [month, setMonth] = useState(new Date().getMonth());
+  const [year] = useState(new Date().getFullYear());
+  const [view, setView] = useState('calendar');
+  const [selectedDay, setDay] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const daysInMonth = 30;
-  const firstDayOfWeek = 2; // Tuesday
-  const presentCount = Object.values(CAL_DATA).filter(v => v === 'present').length;
-  const absentCount  = Object.values(CAL_DATA).filter(v => v === 'absent').length;
-  const pct = Math.round((presentCount / (presentCount + absentCount)) * 100);
+  const fetchAttendance = useCallback(async () => {
+    if (!user?._id) return;
+    setLoading(true);
+    try {
+      const res = await attendanceAPI.getStudentAttendance(user._id);
+      if (res.success) {
+        setRecords(res.data.records);
+        // Calculate stats
+        const p = res.data.records.filter(r => r.status === 'present').length;
+        const a = res.data.records.filter(r => r.status === 'absent').length;
+        const l = res.data.records.filter(r => r.status === 'late').length;
+        const total = p + a + l;
+        setStats({
+          present: p,
+          absent: a,
+          late: l,
+          percentage: total > 0 ? Math.round(((p + l) / total) * 100) : 0
+        });
+      }
+    } catch (err) {
+      toast.error('Failed to load attendance');
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchAttendance();
+  }, [fetchAttendance]);
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayOfWeek = new Date(year, month, 1).getDay();
+
+  // Map records to calendar
+  const CAL_DATA = {};
+  records.forEach(r => {
+    const d = new Date(r.date);
+    if (d.getMonth() === month && d.getFullYear() === year) {
+      CAL_DATA[d.getDate()] = r.status;
+    }
+  });
+
+  const CLASSES_BY_DAY = {};
+  records.forEach(r => {
+    const d = new Date(r.date);
+    const day = d.getDate();
+    if (!CLASSES_BY_DAY[day]) CLASSES_BY_DAY[day] = [];
+    CLASSES_BY_DAY[day].push({
+      course: r.course?.name || 'Unknown Course',
+      time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: r.status,
+      faculty: r.markedBy?.name || 'System'
+    });
+  });
 
   const handleDayClick = (day, e) => {
     if (!CAL_DATA[day] || CAL_DATA[day] === 'pending') return;
@@ -79,10 +116,10 @@ export default function MyAttendance() {
       {/* Summary row */}
       <motion.div variants={stagger} initial="hidden" animate="visible" className="stats-grid" style={{ marginBottom: 24 }}>
         {[
-          { label: 'Classes Attended', value: presentCount, color: '#34D399', suffix: '' },
-          { label: 'Classes Missed',   value: absentCount,  color: '#F87171', suffix: '' },
-          { label: 'Attendance Rate',  value: pct,          color: pct >= 85 ? '#34D399' : pct >= 75 ? '#FBBF24' : '#F87171', suffix: '%' },
-          { label: 'Holidays',         value: Object.values(CAL_DATA).filter(v => v === 'holiday').length, color: '#FBBF24', suffix: '' },
+          { label: 'Classes Attended', value: stats.present, color: '#34D399', suffix: '' },
+          { label: 'Classes Missed', value: stats.absent, color: '#F87171', suffix: '' },
+          { label: 'Attendance Rate', value: stats.percentage, color: stats.percentage >= 85 ? '#34D399' : stats.percentage >= 75 ? '#FBBF24' : '#F87171', suffix: '%' },
+          { label: 'Late Arrivals', value: stats.late, color: '#A78BFA', suffix: '' },
         ].map((s, i) => (
           <motion.div key={s.label} variants={fadeUp} custom={i} className="stat-card glass-card" style={{ borderTop: `2px solid ${s.color}` }}>
             <div style={{ fontSize: '2rem', fontWeight: 700, fontFamily: 'var(--font-display)', color: s.color, marginBottom: 4 }}>{s.value}{s.suffix}</div>
@@ -94,9 +131,9 @@ export default function MyAttendance() {
       {/* Month nav */}
       <motion.div variants={fadeUp} custom={4} initial="hidden" animate="visible" className="glass-card" style={{ padding: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <button id="btn-prev-month" className="btn btn-secondary btn-sm" onClick={() => setMonth(m => Math.max(0, m-1))}><ChevronLeft size={16} /></button>
+          <button id="btn-prev-month" className="btn btn-secondary btn-sm" onClick={() => setMonth(m => Math.max(0, m - 1))}><ChevronLeft size={16} /></button>
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1.1rem' }}>{MONTHS[month]} {year}</h3>
-          <button id="btn-next-month" className="btn btn-secondary btn-sm" onClick={() => setMonth(m => Math.min(11, m+1))}><ChevronRight size={16} /></button>
+          <button id="btn-next-month" className="btn btn-secondary btn-sm" onClick={() => setMonth(m => Math.min(11, m + 1))}><ChevronRight size={16} /></button>
         </div>
 
         <AnimatePresence mode="wait">
@@ -105,7 +142,7 @@ export default function MyAttendance() {
               <>
                 {/* Day headers */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 8 }}>
-                  {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
                     <div key={d} style={{ textAlign: 'center', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', padding: '6px 0' }}>{d}</div>
                   ))}
                 </div>

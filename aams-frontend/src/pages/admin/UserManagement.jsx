@@ -6,7 +6,7 @@ import {
   User, Shield, BookOpen, Heart, Filter, MoreHorizontal, Check
 } from 'lucide-react';
 import { fadeUp, scaleIn, stagger, slideLeft } from '../../utils/animations';
-import { api } from '../../utils/api';
+import { usersAPI } from '../../utils/api';
 import toast from 'react-hot-toast';
 
 const ROLES = ['All', 'student', 'faculty', 'admin', 'parent'];
@@ -14,36 +14,59 @@ const ROLE_ICONS = { student: User, faculty: BookOpen, admin: Shield, parent: He
 const ROLE_COLORS = { student: '#6C8EFF', faculty: '#A78BFA', admin: '#F87171', parent: '#34D399' };
 
 const MOCK_USERS = Array.from({ length: 24 }, (_, i) => ({
-  _id: `u${i+1}`,
-  name: ['Arjun Patel','Priya Singh','Rahul Mehta','Neha Gupta','Vikram Shah','Anjali Verma','Karan Joshi','Divya Nair'][i % 8] + ` ${i+1}`,
-  email: `user${i+1}@lpu.edu`,
+  _id: `u${i + 1}`,
+  name: ['Arjun Patel', 'Priya Singh', 'Rahul Mehta', 'Neha Gupta', 'Vikram Shah', 'Anjali Verma', 'Karan Joshi', 'Divya Nair'][i % 8] + ` ${i + 1}`,
+  email: `user${i + 1}@lpu.edu`,
   role: ROLES.slice(1)[i % 4],
   isActive: i % 7 !== 0,
-  department: { name: ['CSE','ECE','MBA','MECH'][i % 4] },
+  department: { name: ['CSE', 'ECE', 'MBA', 'MECH'][i % 4] },
   createdAt: new Date(Date.now() - i * 86400000 * 5).toISOString(),
   avatar: null,
 }));
 
 export default function UserManagement() {
-  const [users, setUsers]           = useState(MOCK_USERS);
-  const [filtered, setFiltered]     = useState(MOCK_USERS);
-  const [search, setSearch]         = useState('');
+  const [users, setUsers] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+  const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
-  const [page, setPage]             = useState(1);
-  const [selected, setSelected]     = useState(new Set());
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState(new Set());
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editUser, setEditUser]     = useState(null);
+  const [editUser, setEditUser] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [loading, setLoading]       = useState(false);
-  const [formData, setFormData]     = useState({ name:'', email:'', role:'student', department:'' });
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({ name: '', email: '', enrollmentId: '', role: 'student', department: '', section: '', semester: '' });
 
   const PER_PAGE = 8;
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await usersAPI.getAll();
+      if (res.success) setUsers(res.data.users);
+    } catch (err) {
+      toast.error('Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   /* Filter + search */
   useEffect(() => {
     let f = users;
     if (roleFilter !== 'All') f = f.filter(u => u.role === roleFilter);
-    if (search) f = f.filter(u => u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()));
+    if (search) {
+      const q = search.toLowerCase();
+      f = f.filter(u =>
+        u.name?.toLowerCase().includes(q) ||
+        u.email?.toLowerCase().includes(q) ||
+        u.enrollmentId?.toLowerCase().includes(q)
+      );
+    }
     setFiltered(f);
     setPage(1);
   }, [users, search, roleFilter]);
@@ -55,36 +78,62 @@ export default function UserManagement() {
 
   const openAddDrawer = () => {
     setEditUser(null);
-    setFormData({ name:'', email:'', role:'student', department:'' });
+    setFormData({ name: '', email: '', enrollmentId: '', role: 'student', department: '', section: '', semester: '' });
     setDrawerOpen(true);
   };
+
   const openEditDrawer = (u) => {
     setEditUser(u);
-    setFormData({ name: u.name, email: u.email, role: u.role, department: u.department?.name || '' });
+    setFormData({
+      name: u.name,
+      email: u.email || '',
+      enrollmentId: u.enrollmentId || '',
+      role: u.role,
+      department: u.department?._id || u.department || '',
+      section: u.section || '',
+      semester: u.semester || ''
+    });
     setDrawerOpen(true);
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.email) { toast.error('Name and email are required'); return; }
+    if (!formData.name) { toast.error('Name is required'); return; }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 800));
-    if (editUser) {
-      setUsers(us => us.map(u => u._id === editUser._id ? { ...u, ...formData } : u));
-      toast.success('User updated successfully');
-    } else {
-      const newUser = { _id: `u${Date.now()}`, ...formData, isActive: true, department: { name: formData.department }, createdAt: new Date().toISOString() };
-      setUsers(us => [newUser, ...us]);
-      toast.success('User created successfully');
+    try {
+      if (editUser) {
+        const res = await usersAPI.update(editUser._id, formData);
+        if (res.success) {
+          toast.success('User updated successfully');
+          fetchUsers();
+          setDrawerOpen(false);
+        }
+      } else {
+        const res = await usersAPI.create(formData);
+        if (res.success) {
+          toast.success('User created successfully');
+          fetchUsers();
+          setDrawerOpen(false);
+        }
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save user');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    setDrawerOpen(false);
   };
 
-  const handleDelete = (id) => {
-    setUsers(us => us.filter(u => u._id !== id));
+  const handleDelete = async (id) => {
+    try {
+      const res = await usersAPI.delete(id);
+      if (res.success) {
+        toast.success('User deleted');
+        fetchUsers();
+      }
+    } catch (err) {
+      toast.error('Failed to delete user');
+    }
     setDeleteConfirm(null);
-    toast.success('User deleted');
   };
 
   const handleToggleActive = (id) => {
@@ -108,7 +157,7 @@ export default function UserManagement() {
   };
 
   const exportCSV = () => {
-    const rows = [['Name','Email','Role','Status','Department'],...filtered.map(u => [u.name,u.email,u.role,u.isActive?'Active':'Inactive',u.department?.name||''])];
+    const rows = [['Name', 'Email', 'Role', 'Status', 'Department'], ...filtered.map(u => [u.name, u.email, u.role, u.isActive ? 'Active' : 'Inactive', u.department?.name || ''])];
     const blob = new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'users.csv'; a.click();
     toast.success('CSV exported');
@@ -196,12 +245,14 @@ export default function UserManagement() {
                       </div>
                       <div>
                         <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{u.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.email}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.enrollmentId || u.email}</div>
                       </div>
                     </div>
                   </td>
                   <td><span className={`badge role-${u.role}`}>{u.role}</span></td>
-                  <td style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>{u.department?.name || '—'}</td>
+                  <td style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                    {u.role === 'student' ? (u.section || 'No Section') : (u.department?.name || '—')}
+                  </td>
                   <td>
                     <button
                       id={`toggle-user-${u._id}`}
@@ -249,10 +300,10 @@ export default function UserManagement() {
         {/* Pagination */}
         <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Showing {((page-1)*PER_PAGE)+1}–{Math.min(page*PER_PAGE, filtered.length)} of {filtered.length} users
+            Showing {((page - 1) * PER_PAGE) + 1}–{Math.min(page * PER_PAGE, filtered.length)} of {filtered.length} users
           </span>
           <div style={{ display: 'flex', gap: 4 }}>
-            <button id="btn-prev-page" className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}>
+            <button id="btn-prev-page" className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
               <ChevronLeft size={14} />
             </button>
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map(p => (
@@ -260,7 +311,7 @@ export default function UserManagement() {
                 style={{ background: page === p ? 'var(--accent-primary)' : 'var(--bg-elevated)', color: page === p ? 'white' : 'var(--text-secondary)', border: page === p ? 'none' : '1px solid var(--border-default)' }}
               >{p}</button>
             ))}
-            <button id="btn-next-page" className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages}>
+            <button id="btn-next-page" className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
               <ChevronRight size={14} />
             </button>
           </div>
@@ -280,11 +331,15 @@ export default function UserManagement() {
               <form onSubmit={handleSave} className="drawer-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <div className="input-group">
                   <label className="input-label" htmlFor="form-name">Full Name *</label>
-                  <input id="form-name" className="input" type="text" placeholder="User's full name" value={formData.name} onChange={e => setFormData(f => ({...f, name: e.target.value}))} required />
+                  <input id="form-name" className="input" type="text" placeholder="User's full name" value={formData.name} onChange={e => setFormData(f => ({ ...f, name: e.target.value }))} required />
                 </div>
                 <div className="input-group">
-                  <label className="input-label" htmlFor="form-email">Email Address *</label>
-                  <input id="form-email" className="input" type="email" placeholder="user@lpu.edu" value={formData.email} onChange={e => setFormData(f => ({...f, email: e.target.value}))} required />
+                  <label className="input-label" htmlFor="form-email">ID / Enrollment Number *</label>
+                  <input id="form-enrollment" className="input" type="text" placeholder="12223XXX" value={formData.enrollmentId} onChange={e => setFormData(f => ({ ...f, enrollmentId: e.target.value }))} required />
+                </div>
+                <div className="input-group">
+                  <label className="input-label" htmlFor="form-email">Email Address (Optional)</label>
+                  <input id="form-email" className="input" type="email" placeholder="user@lpu.edu" value={formData.email} onChange={e => setFormData(f => ({ ...f, email: e.target.value }))} />
                 </div>
                 <div className="input-group">
                   <label className="input-label">Role *</label>
@@ -292,7 +347,7 @@ export default function UserManagement() {
                     {ROLES.slice(1).map(r => {
                       const RoleIcon = ROLE_ICONS[r];
                       return (
-                        <button key={r} type="button" id={`drawer-role-${r}`} onClick={() => setFormData(f => ({...f, role: r}))}
+                        <button key={r} type="button" id={`drawer-role-${r}`} onClick={() => setFormData(f => ({ ...f, role: r }))}
                           style={{ padding: '10px', borderRadius: 'var(--r-md)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, border: formData.role === r ? '1.5px solid var(--border-accent)' : '1.5px solid var(--border-default)', background: formData.role === r ? 'rgba(108,142,255,0.08)' : 'var(--bg-elevated)', transition: 'all 0.15s' }}
                         >
                           <RoleIcon size={16} color={ROLE_COLORS[r]} />
@@ -305,11 +360,29 @@ export default function UserManagement() {
                 </div>
                 <div className="input-group">
                   <label className="input-label" htmlFor="form-dept">Department</label>
-                  <select id="form-dept" className="input" value={formData.department} onChange={e => setFormData(f => ({...f, department: e.target.value}))}>
+                  <select id="form-dept" className="input" value={formData.department} onChange={e => setFormData(f => ({ ...f, department: e.target.value }))}>
                     <option value="">Select department</option>
-                    {['CSE','ECE','MBA','MECH','CIVIL','IT'].map(d => <option key={d} value={d}>{d}</option>)}
+                    {['654a1b2c3d4e5f6a7b8c9d01', '654a1b2c3d4e5f6a7b8c9d02', '654a1b2c3d4e5f6a7b8c9d03'].map((d, i) => (
+                      <option key={d} value={d}>{['Computer Science', 'Electronics', 'Mechanical'][i]}</option>
+                    ))}
                   </select>
                 </div>
+                {formData.role === 'student' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="input-group">
+                      <label className="input-label">Section</label>
+                      <select className="input" value={formData.section} onChange={e => setFormData(f => ({ ...f, section: e.target.value }))}>
+                        <option value="">Select Section</option>
+                        <option value="CSE-A">CSE-A</option>
+                        <option value="CSE-B">CSE-B</option>
+                      </select>
+                    </div>
+                    <div className="input-group">
+                      <label className="input-label">Semester</label>
+                      <input className="input" type="number" min="1" max="8" value={formData.semester} onChange={e => setFormData(f => ({ ...f, semester: e.target.value }))} />
+                    </div>
+                  </div>
+                )}
               </form>
               <div className="drawer-footer" style={{ display: 'flex', gap: 10 }}>
                 <button id="btn-save-user" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleSave} disabled={loading}>

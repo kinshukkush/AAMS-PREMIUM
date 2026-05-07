@@ -456,7 +456,6 @@ const NAV_CONFIG = {
       section: 'My Records',
       items: [
         { path: '/student/attendance', icon: CheckCircle, label: 'My Attendance', color: '#10B981' },
-        { path: '/student/profile', icon: User, label: 'Profile', color: '#06B6D4' },
       ],
     },
     {

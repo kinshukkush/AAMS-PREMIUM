@@ -32,7 +32,6 @@ import TeacherTimetable from './pages/faculty/FacultyTimetable';
 // Student Pages
 import StudentDashboard from './pages/student/StudentDashboard';
 import MyAttendance from './pages/student/MyAttendance';
-import StudentProfile from './pages/student/StudentProfile';
 import StudentNotifications from './pages/student/StudentNotifications';
 
 // Settings (shared across all roles)
@@ -103,7 +102,6 @@ function AppRoutes() {
           <Route path="/student" element={<ProtectedRoute allowedRoles={['student']}><DashboardLayout role="student" /></ProtectedRoute>}>
             <Route path="dashboard" element={<AnimatedPage><StudentDashboard /></AnimatedPage>} />
             <Route path="attendance" element={<AnimatedPage><MyAttendance /></AnimatedPage>} />
-            <Route path="profile" element={<AnimatedPage><StudentProfile /></AnimatedPage>} />
             <Route path="notifications" element={<AnimatedPage><StudentNotifications /></AnimatedPage>} />
             <Route path="settings" element={<AnimatedPage><Settings /></AnimatedPage>} />
           </Route>
